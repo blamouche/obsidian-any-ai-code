@@ -1,0 +1,89 @@
+.claude-cli-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 8px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.claude-cli-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.claude-cli-toolbar button {
+  border: 1px solid var(--background-modifier-border);
+  background: var(--interactive-normal);
+  color: var(--text-normal);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.claude-cli-toolbar button:hover {
+  background: var(--interactive-hover);
+}
+
+.claude-cli-status {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.claude-cli-terminal {
+  flex: 1;
+  min-height: 220px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.claude-cli-terminal .xterm {
+  position: relative;
+  height: 100%;
+  padding: 8px;
+}
+
+.claude-cli-terminal .xterm .xterm-helpers {
+  position: absolute;
+  top: 0;
+  z-index: 5;
+}
+
+.claude-cli-terminal .xterm .xterm-helper-textarea {
+  position: absolute;
+  opacity: 0;
+  left: -9999em;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: -5;
+  white-space: nowrap;
+  overflow: hidden;
+  resize: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.claude-cli-terminal .xterm .xterm-viewport {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  background-color: inherit;
+}
+
+.claude-cli-terminal .xterm .xterm-screen {
+  position: relative;
+}
+
+.claude-cli-terminal .xterm .xterm-screen canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.claude-cli-terminal .xterm-cursor-layer {
+  position: relative;
+}
