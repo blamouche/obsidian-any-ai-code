@@ -67,6 +67,51 @@
   padding: 0;
 }
 
+/* Match xterm default accessibility styles to avoid visible ghost text. */
+.claude-cli-terminal .xterm .xterm-accessibility,
+.claude-cli-terminal .xterm .xterm-message {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  color: transparent;
+  pointer-events: none;
+}
+
+.claude-cli-terminal .xterm .xterm-accessibility-tree *::selection {
+  color: transparent;
+}
+
+.claude-cli-terminal .xterm .xterm-accessibility-tree {
+  font-family: monospace;
+  user-select: text;
+  white-space: pre;
+}
+
+.claude-cli-terminal .xterm .xterm-accessibility-tree > div {
+  transform-origin: left;
+  width: fit-content;
+}
+
+.claude-cli-terminal .xterm .live-region {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.claude-cli-terminal .xterm .xterm-char-measure-element {
+  display: inline-block;
+  visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: -9999em;
+  line-height: normal;
+}
+
 .claude-cli-terminal .xterm .xterm-viewport {
   position: absolute;
   inset: 0;
