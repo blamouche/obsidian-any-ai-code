@@ -1,0 +1,1 @@
+Drop in this folder your custom prompts and restart install script
