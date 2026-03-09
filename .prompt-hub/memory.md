@@ -1,0 +1,11 @@
+# Memory Log
+
+| Date/Time | Actor | Action Summary | Files/Commands | Outcome | Next Step |
+|---|---|---|---|---|---|
+| 2026-03-06 16:16:29 CET | agent | Diagnosed terminal UI artifact as xterm accessibility layer rendering without visual clipping styles. | `rg -n "Status: Running|terminal|xterm"`, `sed -n '1,240p' styles.css`, `sed -n '1,260p' main.ts` | success | Add targeted CSS fix and validate build. |
+| 2026-03-06 16:16:29 CET | agent | Added CSS rules to visually hide xterm accessibility elements while preserving accessibility semantics. | `styles.css` | success | Run build/test checks. |
+| 2026-03-06 16:16:44 CET | tool | Validation run completed successfully after CSS fix. | `npm run build`, `npm test` | success | Ask user to reload plugin and verify UI rendering. |
+| 2026-03-06 16:23:02 CET | agent | Replaced custom accessibility clipping with xterm-aligned accessibility CSS and added missing char-measure hiding rule to eliminate visible ghost characters. | `styles.css`, `npm run build` | success | User to reload plugin and re-check terminal rendering. |
+| 2026-03-06 16:23:23 CET | agent | Hardened accessibility CSS to hide text even when xterm debug class is present. | `styles.css`, `npm run build` | success | User validation after Obsidian/plugin reload. |
+| 2026-03-06 16:29:26 CET | agent | Applied `agents.md` governance: created missing version and release tracking files and recorded current fix as first release. | `version.md`, `releases.md` | success | Run validation and commit changes. |
+| 2026-03-06 16:29:26 CET | tool | Validation executed after UI/style and release metadata updates. | `npm run build`, `npm test` | success | Commit and push to remote branch. |
