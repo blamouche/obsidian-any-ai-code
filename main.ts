@@ -162,6 +162,9 @@ class ClaudeCliView extends ItemView {
 
     const runtimeLabel = this.getRuntimeLabel(targetRuntime);
     const command = this.getRuntimeCommand(targetRuntime);
+    if (targetRuntime === "codex") {
+      this.resetTerminalDisplay();
+    }
 
     this.terminal.writeln(`[Starting: ${command}]`);
     this.setStatus(`Starting in vault folder (${process.platform})...`);
@@ -184,10 +187,18 @@ class ClaudeCliView extends ItemView {
         return;
       }
 
+      const shellEnv = getShellEnv();
+      if (targetRuntime === "codex") {
+        // Keep Codex output readable in embedded terminals.
+        shellEnv.NO_COLOR = "1";
+        shellEnv.CLICOLOR = "0";
+        shellEnv.FORCE_COLOR = "0";
+      }
+
       const helperHandle = spawnPtyProxy({
         command,
         cwd: vaultPath,
-        env: getShellEnv(),
+        env: shellEnv,
         cols: Math.max(20, this.terminal.cols || 120),
         rows: Math.max(10, this.terminal.rows || 30),
         nodeExecutable: this.plugin.settings.nodeExecutable,
@@ -280,6 +291,15 @@ class ClaudeCliView extends ItemView {
     this.pendingStartRuntime = targetRuntime;
     this.terminal?.writeln(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
     this.stopClaudeProcess(true);
+  }
+
+  private resetTerminalDisplay(): void {
+    if (!this.terminal) {
+      return;
+    }
+
+    this.terminal.reset();
+    this.fitAddon?.fit();
   }
 
   private setRuntime(runtime: CliRuntime): void {

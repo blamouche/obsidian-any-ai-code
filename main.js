@@ -9483,6 +9483,9 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     }
     const runtimeLabel = this.getRuntimeLabel(targetRuntime);
     const command = this.getRuntimeCommand(targetRuntime);
+    if (targetRuntime === "codex") {
+      this.resetTerminalDisplay();
+    }
     this.terminal.writeln(`[Starting: ${command}]`);
     this.setStatus(`Starting in vault folder (${process.platform})...`);
     try {
@@ -9502,10 +9505,16 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
         new import_obsidian.Notice(message, 6e3);
         return;
       }
+      const shellEnv = getShellEnv();
+      if (targetRuntime === "codex") {
+        shellEnv.NO_COLOR = "1";
+        shellEnv.CLICOLOR = "0";
+        shellEnv.FORCE_COLOR = "0";
+      }
       const helperHandle = spawnPtyProxy({
         command,
         cwd: vaultPath,
-        env: getShellEnv(),
+        env: shellEnv,
         cols: Math.max(20, this.terminal.cols || 120),
         rows: Math.max(10, this.terminal.rows || 30),
         nodeExecutable: this.plugin.settings.nodeExecutable,
@@ -9591,6 +9600,14 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.pendingStartRuntime = targetRuntime;
     (_a5 = this.terminal) == null ? void 0 : _a5.writeln(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
     this.stopClaudeProcess(true);
+  }
+  resetTerminalDisplay() {
+    var _a5;
+    if (!this.terminal) {
+      return;
+    }
+    this.terminal.reset();
+    (_a5 = this.fitAddon) == null ? void 0 : _a5.fit();
   }
   setRuntime(runtime) {
     var _a5;

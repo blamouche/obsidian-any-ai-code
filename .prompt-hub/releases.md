@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.4 - 2026-03-13
+- Added terminal reset before Codex launches to clear stale display modes that can cause blank rendering after restart.
+- Added Codex launch env overrides (`NO_COLOR=1`, `CLICOLOR=0`, `FORCE_COLOR=0`) to improve embedded terminal readability.
+
 ## 0.1.3 - 2026-03-13
 - Fixed Codex black screen behavior in the embedded terminal by launching Codex in inline mode (`codex --no-alt-screen`) instead of alternate-screen mode.
 
