@@ -121,7 +121,7 @@ describe("detectNodeExecutable", () => {
 
 describe("formatActiveFileMention", () => {
   it("formats mention with leading @ and trailing space", () => {
-    expect(formatActiveFileMention("monfichier.md")).toBe("@monfichier.md ");
+    expect(formatActiveFileMention("Dossier/monfichier.md")).toBe("@Dossier/monfichier.md ");
   });
 
   it("trims surrounding spaces from file name", () => {

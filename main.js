@@ -9555,7 +9555,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       new import_obsidian.Notice(message, 5e3);
       return;
     }
-    const mention = formatActiveFileMention(activeFile.name);
+    const mention = formatActiveFileMention(activeFile.path);
     this.processHandle.write(mention);
     this.setStatus(`Inserted ${mention.trim()}`);
   }

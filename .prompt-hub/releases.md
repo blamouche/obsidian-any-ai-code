@@ -1,5 +1,9 @@
 # Releases
 
+## 0.0.5 - 2026-03-13
+- Changed active-file mention insertion to use the full vault-relative path (`activeFile.path`) instead of filename only.
+- Updated mention helper tests to cover path-based mention formatting.
+
 ## 0.0.4 - 2026-03-13
 - Added a new `@Fichier actif` button in the Claude toolbar to inject `@<active-file>.md` into the terminal input.
 - Added mention formatting helper and unit tests for mention generation behavior.
