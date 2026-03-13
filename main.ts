@@ -45,7 +45,6 @@ class ClaudeCliView extends ItemView {
   private runtimeButtons: Record<CliRuntime, HTMLButtonElement> | null = null;
   private runningRuntime: CliRuntime | null = null;
   private pendingStartRuntime: CliRuntime | null = null;
-  private codexHandshakeTimer: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: ClaudeCliPlugin) {
     super(leaf);
@@ -133,10 +132,6 @@ class ClaudeCliView extends ItemView {
   }
 
   async onClose(): Promise<void> {
-    if (this.codexHandshakeTimer !== null) {
-      window.clearTimeout(this.codexHandshakeTimer);
-      this.codexHandshakeTimer = null;
-    }
     this.stopClaudeProcess();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
@@ -224,7 +219,6 @@ class ClaudeCliView extends ItemView {
     this.setStatus("Running");
 
     this.processHandle.onData((data: string) => {
-      this.respondToTerminalQueries(data);
       this.terminal?.write(data);
     });
 
@@ -234,20 +228,12 @@ class ClaudeCliView extends ItemView {
       this.setStatus(message);
       this.processHandle = null;
       this.runningRuntime = null;
-      if (this.codexHandshakeTimer !== null) {
-        window.clearTimeout(this.codexHandshakeTimer);
-        this.codexHandshakeTimer = null;
-      }
       const nextRuntime = this.pendingStartRuntime;
       this.pendingStartRuntime = null;
       if (nextRuntime) {
         void this.startClaudeProcess(nextRuntime);
       }
     });
-
-    if (targetRuntime === "codex") {
-      this.scheduleCodexStartupHandshake();
-    }
 
     this.fitAddon?.fit();
   }
@@ -291,7 +277,7 @@ class ClaudeCliView extends ItemView {
     if (runtime === "codex") {
       // Embedded xterm can render a blank alternate screen with Codex TUI.
       // Run inline mode to keep output visible in this panel.
-      return "codex --no-alt-screen";
+      return "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true";
     }
     return this.plugin.settings.command.trim();
   }
@@ -314,53 +300,6 @@ class ClaudeCliView extends ItemView {
 
     this.terminal.reset();
     this.fitAddon?.fit();
-  }
-
-  private respondToTerminalQueries(data: string): void {
-    if (!this.processHandle || data.length === 0) {
-      return;
-    }
-
-    if (data.includes("\u001b[6n")) {
-      this.processHandle.write("\u001b[1;1R");
-    }
-    if (data.includes("\u001b[c")) {
-      this.processHandle.write("\u001b[?62;c");
-    }
-    if (data.includes("\u001b]10;?\u0007") || data.includes("\u001b]10;?\u001b\\")) {
-      this.processHandle.write("\u001b]10;rgb:e6e6/e6e6/e6e6\u0007");
-    }
-    if (data.includes("\u001b]11;?\u0007") || data.includes("\u001b]11;?\u001b\\")) {
-      this.processHandle.write("\u001b]11;rgb:0f0f/1111/1515\u0007");
-    }
-  }
-
-  private scheduleCodexStartupHandshake(): void {
-    if (!this.processHandle) {
-      return;
-    }
-
-    if (this.codexHandshakeTimer !== null) {
-      window.clearTimeout(this.codexHandshakeTimer);
-    }
-
-    const sendHandshake = () => {
-      if (!this.processHandle || this.runningRuntime !== "codex") {
-        return;
-      }
-
-      this.processHandle.write("\u001b[1;1R");
-      this.processHandle.write("\u001b[?62;c");
-      this.processHandle.write("\u001b]10;rgb:e6e6/e6e6/e6e6\u0007");
-      this.processHandle.write("\u001b]11;rgb:0f0f/1111/1515\u0007");
-      this.processHandle.write("\u001b[?0u");
-    };
-
-    sendHandshake();
-    this.codexHandshakeTimer = window.setTimeout(() => {
-      sendHandshake();
-      this.codexHandshakeTimer = null;
-    }, 350);
   }
 
   private setRuntime(runtime: CliRuntime): void {

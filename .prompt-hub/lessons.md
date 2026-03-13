@@ -5,4 +5,5 @@
 - For persistent embedded black-screen issues, also reset terminal state before launch and force no-color output for readability.
 - Some TUIs block on terminal capability queries (`ESC[6n`, `ESC[c`, OSC color requests); provide explicit responses when embedded terminal integration does not reply automatically.
 - In this Obsidian embedded context, `script` fallback can fail with `tcgetattr/ioctl`; keep shell-based launch specs for Codex in the Python PTY bridge and surface explicit errors if no TTY path works.
-- For Codex-on-bridge stalls, send proactive terminal handshake responses immediately after process start, not only reactively after parsing output.
+- Proactive terminal handshake injection can be echoed back as raw input in bridge mode; prefer startup-config mitigations over escape-sequence injection.
+- If injected terminal response sequences are echoed as raw text, stop injection and instead disable Codex startup prompts/warnings via config flags to reduce hidden interactive blockers.
