@@ -8,3 +8,4 @@
 - Proactive terminal handshake injection can be echoed back as raw input in bridge mode; prefer startup-config mitigations over escape-sequence injection.
 - If injected terminal response sequences are echoed as raw text, stop injection and instead disable Codex startup prompts/warnings via config flags to reduce hidden interactive blockers.
 - For interactive Codex/TUI output in embedded xterm, avoid forcing `convertEol: true`; it can distort line rendering and split characters across lines.
+- Python PTY bridge must set terminal size explicitly (`TIOCSWINSZ`) using requested cols/rows; otherwise interactive TUI output can degrade into letter-per-line rendering.

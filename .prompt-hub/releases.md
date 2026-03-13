@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.12 - 2026-03-13
+- Fixed python PTY fallback sizing by propagating requested cols/rows from the proxy and applying them in `pty-bridge.py` via `TIOCSWINSZ` at startup.
+- Reworked python bridge execution from `pty.spawn` convenience mode to explicit PTY fork/exec streaming for deterministic terminal sizing.
+
 ## 0.1.11 - 2026-03-13
 - Fixed split-character / broken newline rendering in embedded Codex output by disabling forced xterm EOL conversion (`convertEol: false`).
 

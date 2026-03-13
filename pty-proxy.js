@@ -139,7 +139,9 @@ function spawnPythonBridge(payload, launches) {
     JSON.stringify({
       cwd: payload.cwd,
       env: payload.env,
-      launches
+      launches,
+      cols: payload.cols,
+      rows: payload.rows
     }),
     "utf8"
   ).toString("base64");
@@ -185,7 +187,9 @@ async function main() {
           term = spawnPythonBridge(
             {
               cwd: payload.cwd,
-              env: fallbackEnv
+              env: fallbackEnv,
+              cols: Math.max(20, Number(payload.cols) || 120),
+              rows: Math.max(10, Number(payload.rows) || 30)
             },
             launches
           );
