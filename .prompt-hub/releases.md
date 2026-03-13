@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.14 - 2026-03-13
+- Fixed cumulative indentation/misaligned output by restoring xterm EOL conversion (`convertEol: true`) for mixed CLI streams that emit LF-only line endings.
+
 ## 0.1.13 - 2026-03-13
 - Added terminal-safe plugin logging helper that clears the active line before printing system messages, preventing `Runtime selected` / `Starting` notices from being appended to active Codex status lines.
 

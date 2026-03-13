@@ -92,7 +92,7 @@ class ClaudeCliView extends ItemView {
 
     this.terminal = new Terminal({
       cursorBlink: true,
-      convertEol: false,
+      convertEol: true,
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
       fontSize: 13,
       scrollback: 3000,

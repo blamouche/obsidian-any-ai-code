@@ -7,6 +7,6 @@
 - In this Obsidian embedded context, `script` fallback can fail with `tcgetattr/ioctl`; keep shell-based launch specs for Codex in the Python PTY bridge and surface explicit errors if no TTY path works.
 - Proactive terminal handshake injection can be echoed back as raw input in bridge mode; prefer startup-config mitigations over escape-sequence injection.
 - If injected terminal response sequences are echoed as raw text, stop injection and instead disable Codex startup prompts/warnings via config flags to reduce hidden interactive blockers.
-- For interactive Codex/TUI output in embedded xterm, avoid forcing `convertEol: true`; it can distort line rendering and split characters across lines.
+- Keep xterm `convertEol: true` for mixed CLI streams that emit `\\n` without `\\r`; disabling it causes cumulative horizontal indentation.
 - Python PTY bridge must set terminal size explicitly (`TIOCSWINSZ`) using requested cols/rows; otherwise interactive TUI output can degrade into letter-per-line rendering.
 - Before writing plugin system notices in terminal, clear the current line (`\\r` + `ESC[2K`) to avoid appending logs onto an active TUI status line.
