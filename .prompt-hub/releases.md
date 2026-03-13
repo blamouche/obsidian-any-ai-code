@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.3 - 2026-03-13
+- Fixed Codex black screen behavior in the embedded terminal by launching Codex in inline mode (`codex --no-alt-screen`) instead of alternate-screen mode.
+
 ## 0.1.2 - 2026-03-13
 - Fixed runtime-switch flow so `Start` now performs a graceful switch when selected runtime differs from running runtime (stop current process, auto-start selected runtime after exit).
 - Added explicit tracking of selected runtime vs running runtime for accurate stop/status messages.

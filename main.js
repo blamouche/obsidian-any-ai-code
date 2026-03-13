@@ -9577,7 +9577,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
   }
   getRuntimeCommand(runtime = this.plugin.settings.runtime) {
     if (runtime === "codex") {
-      return "codex";
+      return "codex --no-alt-screen";
     }
     return this.plugin.settings.command.trim();
   }

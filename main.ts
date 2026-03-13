@@ -264,7 +264,9 @@ class ClaudeCliView extends ItemView {
 
   private getRuntimeCommand(runtime: CliRuntime = this.plugin.settings.runtime): string {
     if (runtime === "codex") {
-      return "codex";
+      // Embedded xterm can render a blank alternate screen with Codex TUI.
+      // Run inline mode to keep output visible in this panel.
+      return "codex --no-alt-screen";
     }
     return this.plugin.settings.command.trim();
   }
