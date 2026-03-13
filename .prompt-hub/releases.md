@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.17 - 2026-03-14
+- Added an `Auto-restart on runtime switch` option in plugin settings.
+- When enabled, switching runtime (`Claude`/`Codex`) from the toolbar automatically restarts the running process to apply the selected runtime immediately.
+
 ## 0.1.16 - 2026-03-14
 - Added a `Default runtime` switch in plugin settings (`Claude` / `Codex`) to choose which runtime is selected and launched by default at panel startup.
 - Updated `Auto-start` setting description to reflect that it starts the selected default runtime.

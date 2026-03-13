@@ -15,6 +15,7 @@ type CliRuntime = "claude" | "codex";
 interface ClaudeCliPluginSettings {
   command: string;
   codexCommand: string;
+  autoRestartOnRuntimeSwitch: boolean;
   autoStart: boolean;
   nodeExecutable: string;
   runtime: CliRuntime;
@@ -24,6 +25,7 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   command: "claude",
   codexCommand:
     "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true",
+  autoRestartOnRuntimeSwitch: false,
   autoStart: true,
   nodeExecutable: "auto",
   runtime: "claude"
@@ -315,6 +317,11 @@ class ClaudeCliView extends ItemView {
     const selectedLabel = this.getRuntimeLabel();
     this.writeSystemLine(`[Runtime selected: ${selectedLabel}]`);
     if (this.processHandle) {
+      if (this.plugin.settings.autoRestartOnRuntimeSwitch) {
+        this.setStatus(`Restarting to ${selectedLabel}...`);
+        this.restartClaudeProcess();
+        return;
+      }
       this.setStatus(`${selectedLabel} selected (restart to apply)`);
       return;
     }
@@ -461,6 +468,18 @@ class ClaudeCliSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.runtime)
           .onChange(async (value) => {
             this.plugin.settings.runtime = (value === "codex" ? "codex" : "claude") as CliRuntime;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Auto-restart on runtime switch")
+      .setDesc("Automatically restart the running process when switching Claude/Codex from the toolbar.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.autoRestartOnRuntimeSwitch)
+          .onChange(async (value) => {
+            this.plugin.settings.autoRestartOnRuntimeSwitch = value;
             await this.plugin.saveSettings();
           })
       );

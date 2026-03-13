@@ -9362,6 +9362,7 @@ var VIEW_TYPE_CLAUDE = "claude-cli-view";
 var DEFAULT_SETTINGS = {
   command: "claude",
   codexCommand: "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true",
+  autoRestartOnRuntimeSwitch: false,
   autoStart: true,
   nodeExecutable: "auto",
   runtime: "claude"
@@ -9617,6 +9618,11 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     const selectedLabel = this.getRuntimeLabel();
     this.writeSystemLine(`[Runtime selected: ${selectedLabel}]`);
     if (this.processHandle) {
+      if (this.plugin.settings.autoRestartOnRuntimeSwitch) {
+        this.setStatus(`Restarting to ${selectedLabel}...`);
+        this.restartClaudeProcess();
+        return;
+      }
       this.setStatus(`${selectedLabel} selected (restart to apply)`);
       return;
     }
@@ -9720,6 +9726,12 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("Default runtime").setDesc("Runtime selected by default when opening the panel (and used by auto-start).").addDropdown(
       (dropdown) => dropdown.addOption("claude", "Claude").addOption("codex", "Codex").setValue(this.plugin.settings.runtime).onChange(async (value) => {
         this.plugin.settings.runtime = value === "codex" ? "codex" : "claude";
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Auto-restart on runtime switch").setDesc("Automatically restart the running process when switching Claude/Codex from the toolbar.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.autoRestartOnRuntimeSwitch).onChange(async (value) => {
+        this.plugin.settings.autoRestartOnRuntimeSwitch = value;
         await this.plugin.saveSettings();
       })
     );
