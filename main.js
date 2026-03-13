@@ -9416,7 +9416,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.terminalHostEl = this.contentEl.createDiv({ cls: "claude-cli-terminal" });
     this.terminal = new Dl({
       cursorBlink: true,
-      convertEol: true,
+      convertEol: false,
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
       fontSize: 13,
       scrollback: 3e3,

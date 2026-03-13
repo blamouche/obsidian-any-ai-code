@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.11 - 2026-03-13
+- Fixed split-character / broken newline rendering in embedded Codex output by disabling forced xterm EOL conversion (`convertEol: false`).
+
 ## 0.1.10 - 2026-03-13
 - Removed Codex startup escape-sequence injection that was being echoed as raw input in bridge mode.
 - Updated Codex launch command to disable startup update/warning prompts (`check_for_update_on_startup=false`, `hide_full_access_warning=true`, `hide_world_writable_warning=true`, `hide_rate_limit_model_nudge=true`) for better embedded-terminal compatibility.
