@@ -4,6 +4,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import {
   detectNodeExecutable,
+  formatActiveFileMention,
   mergePathEntries as mergePathEntriesForPlatform,
   resolvePluginDir as resolvePluginDirWithVault
 } from "./runtime-utils";
@@ -65,6 +66,7 @@ class ClaudeCliView extends ItemView {
     const stopBtn = toolbarEl.createEl("button", { text: "Stop" });
     const restartBtn = toolbarEl.createEl("button", { text: "Restart" });
     const clearBtn = toolbarEl.createEl("button", { text: "Clear" });
+    const mentionBtn = toolbarEl.createEl("button", { text: "@Fichier actif" });
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
 
     startBtn.addEventListener("click", () => this.startClaudeProcess());
@@ -74,6 +76,7 @@ class ClaudeCliView extends ItemView {
       await this.startClaudeProcess();
     });
     clearBtn.addEventListener("click", () => this.terminal?.clear());
+    mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
 
     this.terminalHostEl = this.contentEl.createDiv({ cls: "claude-cli-terminal" });
 
@@ -215,6 +218,28 @@ class ClaudeCliView extends ItemView {
 
   private setStatus(message: string): void {
     this.statusEl?.setText(`Status: ${message}`);
+  }
+
+  private insertActiveFileMention(): void {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      const message = "No active file detected.";
+      this.terminal?.writeln(`[${message}]`);
+      this.setStatus(message);
+      new Notice(message, 4000);
+      return;
+    }
+    if (!this.processHandle) {
+      const message = "Claude process is not running. Start it before inserting a file mention.";
+      this.terminal?.writeln(`[${message}]`);
+      this.setStatus(message);
+      new Notice(message, 5000);
+      return;
+    }
+
+    const mention = formatActiveFileMention(activeFile.name);
+    this.processHandle.write(mention);
+    this.setStatus(`Inserted ${mention.trim()}`);
   }
 }
 

@@ -7,6 +7,10 @@ export interface PathApi {
   join(...parts: string[]): string;
 }
 
+export function formatActiveFileMention(fileName: string): string {
+  return `@${fileName.trim()} `;
+}
+
 export function resolvePluginDir(
   pluginDir: string | undefined,
   vaultBasePath: string | undefined,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   detectNodeExecutable,
+  formatActiveFileMention,
   getLaunchSpecs,
   mergePathEntries,
   resolveExecutableInPath,
@@ -115,5 +116,15 @@ describe("detectNodeExecutable", () => {
       { join: (...parts) => parts.join("/") }
     );
     expect(result).toBe("/opt/homebrew/bin/node");
+  });
+});
+
+describe("formatActiveFileMention", () => {
+  it("formats mention with leading @ and trailing space", () => {
+    expect(formatActiveFileMention("monfichier.md")).toBe("@monfichier.md ");
+  });
+
+  it("trims surrounding spaces from file name", () => {
+    expect(formatActiveFileMention("  monfichier.md  ")).toBe("@monfichier.md ");
   });
 });

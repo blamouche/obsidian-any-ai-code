@@ -1,5 +1,9 @@
 # Releases
 
+## 0.0.4 - 2026-03-13
+- Added a new `@Fichier actif` button in the Claude toolbar to inject `@<active-file>.md` into the terminal input.
+- Added mention formatting helper and unit tests for mention generation behavior.
+
 ## 0.0.3 - 2026-03-13
 - Added session memory log entry covering governance versioning and repository synchronization (`git commit` + `git push`).
 

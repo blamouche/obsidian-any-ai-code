@@ -9286,6 +9286,9 @@ var o = class {
 };
 
 // runtime-utils.ts
+function formatActiveFileMention(fileName) {
+  return `@${fileName.trim()} `;
+}
 function resolvePluginDir(pluginDir, vaultBasePath, pathApi) {
   if (!pluginDir) {
     return void 0;
@@ -9389,6 +9392,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     const stopBtn = toolbarEl.createEl("button", { text: "Stop" });
     const restartBtn = toolbarEl.createEl("button", { text: "Restart" });
     const clearBtn = toolbarEl.createEl("button", { text: "Clear" });
+    const mentionBtn = toolbarEl.createEl("button", { text: "@Fichier actif" });
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
     startBtn.addEventListener("click", () => this.startClaudeProcess());
     stopBtn.addEventListener("click", () => this.stopClaudeProcess());
@@ -9400,6 +9404,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       var _a5;
       return (_a5 = this.terminal) == null ? void 0 : _a5.clear();
     });
+    mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
     this.terminalHostEl = this.contentEl.createDiv({ cls: "claude-cli-terminal" });
     this.terminal = new Dl({
       cursorBlink: true,
@@ -9532,6 +9537,27 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
   setStatus(message) {
     var _a5;
     (_a5 = this.statusEl) == null ? void 0 : _a5.setText(`Status: ${message}`);
+  }
+  insertActiveFileMention() {
+    var _a5, _b;
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      const message = "No active file detected.";
+      (_a5 = this.terminal) == null ? void 0 : _a5.writeln(`[${message}]`);
+      this.setStatus(message);
+      new import_obsidian.Notice(message, 4e3);
+      return;
+    }
+    if (!this.processHandle) {
+      const message = "Claude process is not running. Start it before inserting a file mention.";
+      (_b = this.terminal) == null ? void 0 : _b.writeln(`[${message}]`);
+      this.setStatus(message);
+      new import_obsidian.Notice(message, 5e3);
+      return;
+    }
+    const mention = formatActiveFileMention(activeFile.name);
+    this.processHandle.write(mention);
+    this.setStatus(`Inserted ${mention.trim()}`);
   }
 };
 var ClaudeCliPlugin = class extends import_obsidian.Plugin {
