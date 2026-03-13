@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.7 - 2026-03-13
+- Reworked Codex launch specs to run directly via `/usr/bin/env codex ...` (without shell wrapper) in PTY fallback paths.
+- Removed Codex reliance on system `script` fallback in this environment due `tcgetattr/ioctl` failures, and now surfaces explicit proxy errors when no compatible launch path works.
+
 ## 0.1.6 - 2026-03-13
 - Updated proxy fallback strategy for Codex: when `node-pty` is unavailable, try system `script` pseudo-TTY fallback before python bridge to avoid hangs after startup.
 

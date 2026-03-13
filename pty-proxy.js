@@ -16,6 +16,15 @@ function getLaunchSpecs(command) {
     return [{ file: comspec, args: ["/d", "/s", "/c", command] }];
   }
 
+  const trimmed = typeof command === "string" ? command.trim() : "";
+  if (isCodexCommand(trimmed)) {
+    const codexArgs = parseCodexArgs(trimmed);
+    return [
+      { file: "/usr/bin/env", args: ["codex", ...codexArgs] },
+      { file: "/usr/bin/env", args: ["sh", "-c", trimmed] }
+    ];
+  }
+
   const candidates = [process.env.SHELL, "/bin/zsh", "/bin/bash", "/bin/sh"].filter(Boolean);
   const unique = Array.from(new Set(candidates));
 
@@ -90,6 +99,14 @@ function buildScriptLaunches(command, launches) {
   });
 
   return wrappers;
+}
+
+function parseCodexArgs(command) {
+  const parts = command.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) {
+    return [];
+  }
+  return parts.slice(1);
 }
 
 function isCodexCommand(command) {
@@ -178,20 +195,7 @@ async function main() {
         TERM: "xterm-256color"
       };
       const scriptLaunches = buildScriptLaunches(payload.command, launches);
-      const preferScript = isCodexCommand(payload.command) && scriptLaunches.length > 0;
-
-      if (preferScript) {
-        process.stderr.write("[proxy-info] codex detected, trying system 'script' fallback first\n");
-        try {
-          term = spawnPipeWithFallback(scriptLaunches, {
-            cwd: payload.cwd,
-            env: fallbackEnv
-          });
-          process.stderr.write("[proxy-info] script fallback started\n");
-        } catch (scriptError) {
-          process.stderr.write(`[proxy-warn] script fallback failed, trying python bridge: ${scriptError.message}\n`);
-        }
-      }
+      const codexCommand = isCodexCommand(payload.command);
 
       if (!term) {
         try {
@@ -212,6 +216,11 @@ async function main() {
             });
             process.stderr.write("[proxy-info] direct pipe fallback started\n");
           } catch (pipeError) {
+            if (codexCommand) {
+              process.stderr.write(`[proxy-error] ${pipeError.message}\n`);
+              process.exit(1);
+              return;
+            }
             if (scriptLaunches.length === 0) {
               process.stderr.write(`[proxy-error] ${pipeError.message}\n`);
               process.exit(1);
