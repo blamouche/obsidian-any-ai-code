@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.2 - 2026-03-13
+- Fixed runtime-switch flow so `Start` now performs a graceful switch when selected runtime differs from running runtime (stop current process, auto-start selected runtime after exit).
+- Added explicit tracking of selected runtime vs running runtime for accurate stop/status messages.
+- Manual `Stop` now cancels pending auto-restart requests.
+
 ## 0.1.1 - 2026-03-13
 - Fixed dropped early process output/events by attaching PTY proxy listeners immediately and buffering startup data until UI callbacks register.
 - This makes Codex startup errors and early logs visible instead of appearing as a blank terminal.

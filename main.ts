@@ -43,6 +43,8 @@ class ClaudeCliView extends ItemView {
   private resizeObserver: ResizeObserver | null = null;
   private statusEl: HTMLDivElement | null = null;
   private runtimeButtons: Record<CliRuntime, HTMLButtonElement> | null = null;
+  private runningRuntime: CliRuntime | null = null;
+  private pendingStartRuntime: CliRuntime | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: ClaudeCliPlugin) {
     super(leaf);
@@ -80,10 +82,7 @@ class ClaudeCliView extends ItemView {
 
     startBtn.addEventListener("click", () => this.startClaudeProcess());
     stopBtn.addEventListener("click", () => this.stopClaudeProcess());
-    restartBtn.addEventListener("click", async () => {
-      this.stopClaudeProcess();
-      await this.startClaudeProcess();
-    });
+    restartBtn.addEventListener("click", () => this.restartClaudeProcess());
     clearBtn.addEventListener("click", () => this.terminal?.clear());
     mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
     claudeBtn.addEventListener("click", () => this.setRuntime("claude"));
@@ -142,18 +141,27 @@ class ClaudeCliView extends ItemView {
     this.statusEl = null;
   }
 
-  async startClaudeProcess(): Promise<void> {
+  async startClaudeProcess(runtimeOverride?: CliRuntime): Promise<void> {
     if (!this.terminal) {
       return;
     }
+    const targetRuntime = runtimeOverride ?? this.plugin.settings.runtime;
+    const targetLabel = this.getRuntimeLabel(targetRuntime);
+
     if (this.processHandle) {
-      this.terminal.writeln(`[${this.getRuntimeLabel()} process is already running]`);
-      this.setStatus("Already running");
+      if (this.runningRuntime === targetRuntime) {
+        this.terminal.writeln(`[${targetLabel} process is already running]`);
+        this.setStatus("Already running");
+      } else {
+        this.pendingStartRuntime = targetRuntime;
+        this.terminal.writeln(`[Switch requested: ${targetLabel}. Stopping current process first...]`);
+        this.stopClaudeProcess(true);
+      }
       return;
     }
 
-    const runtimeLabel = this.getRuntimeLabel();
-    const command = this.getRuntimeCommand();
+    const runtimeLabel = this.getRuntimeLabel(targetRuntime);
+    const command = this.getRuntimeCommand(targetRuntime);
 
     this.terminal.writeln(`[Starting: ${command}]`);
     this.setStatus(`Starting in vault folder (${process.platform})...`);
@@ -187,12 +195,14 @@ class ClaudeCliView extends ItemView {
         vaultPath
       });
       this.processHandle = makeProxyAdapter(helperHandle);
+      this.runningRuntime = targetRuntime;
     } catch (error) {
       const message = `Failed to start process: ${(error as Error).message}`;
       this.terminal.writeln(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 7000);
       this.processHandle = null;
+      this.runningRuntime = null;
       return;
     }
     this.setStatus("Running");
@@ -206,17 +216,26 @@ class ClaudeCliView extends ItemView {
       this.terminal?.writeln(`[${message}]`);
       this.setStatus(message);
       this.processHandle = null;
+      this.runningRuntime = null;
+      const nextRuntime = this.pendingStartRuntime;
+      this.pendingStartRuntime = null;
+      if (nextRuntime) {
+        void this.startClaudeProcess(nextRuntime);
+      }
     });
 
     this.fitAddon?.fit();
   }
 
-  stopClaudeProcess(): void {
+  stopClaudeProcess(preservePendingStart = false): void {
     if (!this.processHandle) {
       return;
     }
+    if (!preservePendingStart) {
+      this.pendingStartRuntime = null;
+    }
 
-    this.terminal?.writeln(`[Stopping ${this.getRuntimeLabel()} process...]`);
+    this.terminal?.writeln(`[Stopping ${this.getRunningRuntimeLabel()} process...]`);
     this.setStatus("Stopping...");
     try {
       this.processHandle.kill("SIGTERM");
@@ -232,15 +251,33 @@ class ClaudeCliView extends ItemView {
     this.statusEl?.setText(`Status: ${message}`);
   }
 
-  private getRuntimeLabel(): string {
-    return this.plugin.settings.runtime === "codex" ? "Codex" : "Claude";
+  private getRuntimeLabel(runtime: CliRuntime = this.plugin.settings.runtime): string {
+    return runtime === "codex" ? "Codex" : "Claude";
   }
 
-  private getRuntimeCommand(): string {
-    if (this.plugin.settings.runtime === "codex") {
+  private getRunningRuntimeLabel(): string {
+    if (!this.runningRuntime) {
+      return this.getRuntimeLabel();
+    }
+    return this.getRuntimeLabel(this.runningRuntime);
+  }
+
+  private getRuntimeCommand(runtime: CliRuntime = this.plugin.settings.runtime): string {
+    if (runtime === "codex") {
       return "codex";
     }
     return this.plugin.settings.command.trim();
+  }
+
+  private restartClaudeProcess(): void {
+    const targetRuntime = this.plugin.settings.runtime;
+    if (!this.processHandle) {
+      void this.startClaudeProcess(targetRuntime);
+      return;
+    }
+    this.pendingStartRuntime = targetRuntime;
+    this.terminal?.writeln(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
+    this.stopClaudeProcess(true);
   }
 
   private setRuntime(runtime: CliRuntime): void {
