@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.15 - 2026-03-13
+- Added a dedicated `Codex command` setting in the plugin configuration panel.
+- Codex runtime launch now uses configurable `codexCommand` settings value instead of a hardcoded command.
+
 ## 0.1.14 - 2026-03-13
 - Fixed cumulative indentation/misaligned output by restoring xterm EOL conversion (`convertEol: true`) for mixed CLI streams that emit LF-only line endings.
 

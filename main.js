@@ -9361,6 +9361,7 @@ function detectNodeExecutable(configuredValue, platform, env, existsSync, pathAp
 var VIEW_TYPE_CLAUDE = "claude-cli-view";
 var DEFAULT_SETTINGS = {
   command: "claude",
+  codexCommand: "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true",
   autoStart: true,
   nodeExecutable: "auto",
   runtime: "claude"
@@ -9584,7 +9585,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
   }
   getRuntimeCommand(runtime = this.plugin.settings.runtime) {
     if (runtime === "codex") {
-      return "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true";
+      return this.plugin.settings.codexCommand.trim() || DEFAULT_SETTINGS.codexCommand;
     }
     return this.plugin.settings.command.trim();
   }
@@ -9707,6 +9708,12 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("Command").setDesc("Command used to launch Claude Code in the embedded terminal.").addText(
       (text) => text.setPlaceholder("claude").setValue(this.plugin.settings.command).onChange(async (value) => {
         this.plugin.settings.command = value.trim() || "claude";
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Codex command").setDesc("Command used to launch Codex in the embedded terminal.").addText(
+      (text) => text.setPlaceholder(DEFAULT_SETTINGS.codexCommand).setValue(this.plugin.settings.codexCommand).onChange(async (value) => {
+        this.plugin.settings.codexCommand = value.trim() || DEFAULT_SETTINGS.codexCommand;
         await this.plugin.saveSettings();
       })
     );

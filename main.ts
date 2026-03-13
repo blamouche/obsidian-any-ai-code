@@ -14,6 +14,7 @@ type CliRuntime = "claude" | "codex";
 
 interface ClaudeCliPluginSettings {
   command: string;
+  codexCommand: string;
   autoStart: boolean;
   nodeExecutable: string;
   runtime: CliRuntime;
@@ -21,6 +22,8 @@ interface ClaudeCliPluginSettings {
 
 const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   command: "claude",
+  codexCommand:
+    "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true",
   autoStart: true,
   nodeExecutable: "auto",
   runtime: "claude"
@@ -275,9 +278,7 @@ class ClaudeCliView extends ItemView {
 
   private getRuntimeCommand(runtime: CliRuntime = this.plugin.settings.runtime): string {
     if (runtime === "codex") {
-      // Embedded xterm can render a blank alternate screen with Codex TUI.
-      // Run inline mode to keep output visible in this panel.
-      return "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true";
+      return this.plugin.settings.codexCommand.trim() || DEFAULT_SETTINGS.codexCommand;
     }
     return this.plugin.settings.command.trim();
   }
@@ -433,6 +434,19 @@ class ClaudeCliSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.command)
           .onChange(async (value) => {
             this.plugin.settings.command = value.trim() || "claude";
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Codex command")
+      .setDesc("Command used to launch Codex in the embedded terminal.")
+      .addText((text) =>
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.codexCommand)
+          .setValue(this.plugin.settings.codexCommand)
+          .onChange(async (value) => {
+            this.plugin.settings.codexCommand = value.trim() || DEFAULT_SETTINGS.codexCommand;
             await this.plugin.saveSettings();
           })
       );
