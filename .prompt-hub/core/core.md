@@ -16,6 +16,15 @@ Use this prompt as the default operating policy for AI agents across all tasks a
 
 ## Task Management
 
+**Mandatory pre-work — do these steps before anything else, in order:**
+
+1. Read `.prompt-hub/lessons.md` — apply all rules to the current task.
+2. Read `.prompt-hub/memory.md` — restore context from previous sessions.
+3. Read `.prompt-hub/releases.md` — know the current version before any change.
+4. Create the task file at `.prompt-hub/todo/todo-<timestamp>-<slug>.md` — then start work.
+
+Skipping any of these steps is a failure.
+
 - Plan first: create a task file at `.prompt-hub/todo/todo-<timestamp>-<slug>.md` where `<timestamp>` is the current date-time in `YYYYMMDD-HHmmss` format and `<slug>` is a short kebab-case identifier for the task (e.g. `todo-20260313-143000-add-auth.md`).
 - Each task gets its own file; never reuse or overwrite an existing todo file for a different task.
 - For non-trivial tasks (3+ steps or architectural decisions): use plan mode.
