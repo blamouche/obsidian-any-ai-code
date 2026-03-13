@@ -16,15 +16,6 @@ function getLaunchSpecs(command) {
     return [{ file: comspec, args: ["/d", "/s", "/c", command] }];
   }
 
-  const trimmed = typeof command === "string" ? command.trim() : "";
-  if (isCodexCommand(trimmed)) {
-    const codexArgs = parseCodexArgs(trimmed);
-    return [
-      { file: "/usr/bin/env", args: ["codex", ...codexArgs] },
-      { file: "/usr/bin/env", args: ["sh", "-c", trimmed] }
-    ];
-  }
-
   const candidates = [process.env.SHELL, "/bin/zsh", "/bin/bash", "/bin/sh"].filter(Boolean);
   const unique = Array.from(new Set(candidates));
 
@@ -99,14 +90,6 @@ function buildScriptLaunches(command, launches) {
   });
 
   return wrappers;
-}
-
-function parseCodexArgs(command) {
-  const parts = command.split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) {
-    return [];
-  }
-  return parts.slice(1);
 }
 
 function isCodexCommand(command) {

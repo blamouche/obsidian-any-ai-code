@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.8 - 2026-03-13
+- Restored shell-based Codex launch specs in PTY bridge mode after direct `/usr/bin/env codex ...` launch caused startup stalls in this embedded environment.
+- Kept the removal of incompatible `script` fallback for Codex and retained explicit error propagation when no launch path works.
+
 ## 0.1.7 - 2026-03-13
 - Reworked Codex launch specs to run directly via `/usr/bin/env codex ...` (without shell wrapper) in PTY fallback paths.
 - Removed Codex reliance on system `script` fallback in this environment due `tcgetattr/ioctl` failures, and now surfaces explicit proxy errors when no compatible launch path works.

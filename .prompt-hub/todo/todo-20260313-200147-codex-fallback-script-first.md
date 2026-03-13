@@ -10,7 +10,7 @@
 
 ## Review
 - Updated `pty-proxy.js` fallback strategy for Codex:
-  - Codex launch specs now prioritize direct command execution via `/usr/bin/env codex ...` (no shell wrapper).
+  - Restored shell-based launch specs for Codex in bridge mode to avoid stalling behavior seen with direct `/usr/bin/env codex ...` launch path.
   - Removed Codex reliance on system `script` fallback in this environment (it fails with `tcgetattr/ioctl`).
   - If Codex cannot launch in PTY bridge and direct pipe, proxy now emits explicit error instead of looping through incompatible fallback.
 - Preserved generic fallback chain for non-Codex commands.
