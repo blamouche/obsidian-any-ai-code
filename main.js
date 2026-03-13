@@ -9377,6 +9377,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.runtimeButtons = null;
     this.runningRuntime = null;
     this.pendingStartRuntime = null;
+    this.codexHandshakeTimer = null;
     this.plugin = plugin;
   }
   getViewType() {
@@ -9455,6 +9456,10 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
   }
   async onClose() {
     var _a5, _b;
+    if (this.codexHandshakeTimer !== null) {
+      window.clearTimeout(this.codexHandshakeTimer);
+      this.codexHandshakeTimer = null;
+    }
     this.stopClaudeProcess();
     (_a5 = this.resizeObserver) == null ? void 0 : _a5.disconnect();
     this.resizeObserver = null;
@@ -9545,12 +9550,19 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       this.setStatus(message);
       this.processHandle = null;
       this.runningRuntime = null;
+      if (this.codexHandshakeTimer !== null) {
+        window.clearTimeout(this.codexHandshakeTimer);
+        this.codexHandshakeTimer = null;
+      }
       const nextRuntime = this.pendingStartRuntime;
       this.pendingStartRuntime = null;
       if (nextRuntime) {
         void this.startClaudeProcess(nextRuntime);
       }
     });
+    if (targetRuntime === "codex") {
+      this.scheduleCodexStartupHandshake();
+    }
     (_a5 = this.fitAddon) == null ? void 0 : _a5.fit();
   }
   stopClaudeProcess(preservePendingStart = false) {
@@ -9626,6 +9638,29 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     if (data.includes("\x1B]11;?\x07") || data.includes("\x1B]11;?\x1B\\")) {
       this.processHandle.write("\x1B]11;rgb:0f0f/1111/1515\x07");
     }
+  }
+  scheduleCodexStartupHandshake() {
+    if (!this.processHandle) {
+      return;
+    }
+    if (this.codexHandshakeTimer !== null) {
+      window.clearTimeout(this.codexHandshakeTimer);
+    }
+    const sendHandshake = () => {
+      if (!this.processHandle || this.runningRuntime !== "codex") {
+        return;
+      }
+      this.processHandle.write("\x1B[1;1R");
+      this.processHandle.write("\x1B[?62;c");
+      this.processHandle.write("\x1B]10;rgb:e6e6/e6e6/e6e6\x07");
+      this.processHandle.write("\x1B]11;rgb:0f0f/1111/1515\x07");
+      this.processHandle.write("\x1B[?0u");
+    };
+    sendHandshake();
+    this.codexHandshakeTimer = window.setTimeout(() => {
+      sendHandshake();
+      this.codexHandshakeTimer = null;
+    }, 350);
   }
   setRuntime(runtime) {
     var _a5;

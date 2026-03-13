@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.9 - 2026-03-13
+- Added proactive Codex startup handshake in the view layer (DSR/DA/OSC replies sent immediately after process start, then retried once) to unblock bridge-mode startup stalls.
+
 ## 0.1.8 - 2026-03-13
 - Restored shell-based Codex launch specs in PTY bridge mode after direct `/usr/bin/env codex ...` launch caused startup stalls in this embedded environment.
 - Kept the removal of incompatible `script` fallback for Codex and retained explicit error propagation when no launch path works.
