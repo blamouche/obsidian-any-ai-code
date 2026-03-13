@@ -26,6 +26,23 @@
   background: var(--interactive-hover);
 }
 
+.claude-cli-runtime-toggle {
+  display: inline-flex;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.claude-cli-runtime-toggle button {
+  border: 0;
+  border-radius: 0;
+}
+
+.claude-cli-runtime-toggle button.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
 .claude-cli-status {
   color: var(--text-muted);
   font-size: 12px;

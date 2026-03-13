@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.0 - 2026-03-13
+- Added an in-panel runtime switch (`Claude` / `Codex`) so users can choose which CLI to launch without opening plugin settings.
+- Persisted runtime choice and applied it to start/restart behavior, with runtime-aware status/terminal messages.
+
 ## 0.0.6 - 2026-03-13
 - Improved `@Fichier actif` button behavior by automatically restoring focus to the embedded CLI terminal after inserting the mention.
 
