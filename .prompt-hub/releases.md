@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.13 - 2026-03-13
+- Added terminal-safe plugin logging helper that clears the active line before printing system messages, preventing `Runtime selected` / `Starting` notices from being appended to active Codex status lines.
+
 ## 0.1.12 - 2026-03-13
 - Fixed python PTY fallback sizing by propagating requested cols/rows from the proxy and applying them in `pty-bridge.py` via `TIOCSWINSZ` at startup.
 - Reworked python bridge execution from `pty.spawn` convenience mode to explicit PTY fork/exec streaming for deterministic terminal sizing.

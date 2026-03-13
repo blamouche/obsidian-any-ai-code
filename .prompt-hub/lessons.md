@@ -9,3 +9,4 @@
 - If injected terminal response sequences are echoed as raw text, stop injection and instead disable Codex startup prompts/warnings via config flags to reduce hidden interactive blockers.
 - For interactive Codex/TUI output in embedded xterm, avoid forcing `convertEol: true`; it can distort line rendering and split characters across lines.
 - Python PTY bridge must set terminal size explicitly (`TIOCSWINSZ`) using requested cols/rows; otherwise interactive TUI output can degrade into letter-per-line rendering.
+- Before writing plugin system notices in terminal, clear the current line (`\\r` + `ESC[2K`) to avoid appending logs onto an active TUI status line.

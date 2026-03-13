@@ -106,7 +106,7 @@ class ClaudeCliView extends ItemView {
     this.terminal.loadAddon(this.fitAddon);
     this.terminal.open(this.terminalHostEl);
     this.fitAddon.fit();
-    this.terminal.writeln("CLI panel ready.");
+    this.writeSystemLine("CLI panel ready.");
 
     this.terminal.onData((data) => {
       this.processHandle?.write(data);
@@ -126,7 +126,7 @@ class ClaudeCliView extends ItemView {
     if (this.plugin.settings.autoStart) {
       await this.startClaudeProcess();
     } else {
-      this.terminal.writeln(`Auto-start is disabled. Click Start to launch ${this.getRuntimeLabel()}.`);
+      this.writeSystemLine(`Auto-start is disabled. Click Start to launch ${this.getRuntimeLabel()}.`);
       this.setStatus("Idle");
     }
   }
@@ -150,11 +150,11 @@ class ClaudeCliView extends ItemView {
 
     if (this.processHandle) {
       if (this.runningRuntime === targetRuntime) {
-        this.terminal.writeln(`[${targetLabel} process is already running]`);
+        this.writeSystemLine(`[${targetLabel} process is already running]`);
         this.setStatus("Already running");
       } else {
         this.pendingStartRuntime = targetRuntime;
-        this.terminal.writeln(`[Switch requested: ${targetLabel}. Stopping current process first...]`);
+        this.writeSystemLine(`[Switch requested: ${targetLabel}. Stopping current process first...]`);
         this.stopClaudeProcess(true);
       }
       return;
@@ -166,14 +166,14 @@ class ClaudeCliView extends ItemView {
       this.resetTerminalDisplay();
     }
 
-    this.terminal.writeln(`[Starting: ${command}]`);
+    this.writeSystemLine(`[Starting: ${command}]`);
     this.setStatus(`Starting in vault folder (${process.platform})...`);
 
     try {
       const vaultPath = getVaultBasePath(this.app);
       if (!vaultPath) {
         const message = `Unable to resolve current vault path. ${runtimeLabel} was not started.`;
-        this.terminal.writeln(`[${message}]`);
+        this.writeSystemLine(`[${message}]`);
         this.setStatus(message);
         new Notice(message, 6000);
         return;
@@ -181,7 +181,7 @@ class ClaudeCliView extends ItemView {
       const fs = require("fs") as typeof import("fs");
       if (!fs.existsSync(vaultPath)) {
         const message = `Vault path does not exist: ${vaultPath}`;
-        this.terminal.writeln(`[${message}]`);
+        this.writeSystemLine(`[${message}]`);
         this.setStatus(message);
         new Notice(message, 6000);
         return;
@@ -209,7 +209,7 @@ class ClaudeCliView extends ItemView {
       this.runningRuntime = targetRuntime;
     } catch (error) {
       const message = `Failed to start process: ${(error as Error).message}`;
-      this.terminal.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 7000);
       this.processHandle = null;
@@ -224,7 +224,7 @@ class ClaudeCliView extends ItemView {
 
     this.processHandle.onExit((exitCode, signal) => {
       const message = `Process exited (code=${exitCode}, signal=${signal})`;
-      this.terminal?.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       this.processHandle = null;
       this.runningRuntime = null;
@@ -246,13 +246,13 @@ class ClaudeCliView extends ItemView {
       this.pendingStartRuntime = null;
     }
 
-    this.terminal?.writeln(`[Stopping ${this.getRunningRuntimeLabel()} process...]`);
+    this.writeSystemLine(`[Stopping ${this.getRunningRuntimeLabel()} process...]`);
     this.setStatus("Stopping...");
     try {
       this.processHandle.kill("SIGTERM");
     } catch (error) {
       const message = `Failed to stop process: ${(error as Error).message}`;
-      this.terminal?.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 6000);
     }
@@ -289,7 +289,7 @@ class ClaudeCliView extends ItemView {
       return;
     }
     this.pendingStartRuntime = targetRuntime;
-    this.terminal?.writeln(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
+    this.writeSystemLine(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
     this.stopClaudeProcess(true);
   }
 
@@ -312,7 +312,7 @@ class ClaudeCliView extends ItemView {
     this.updateRuntimeButtons();
 
     const selectedLabel = this.getRuntimeLabel();
-    this.terminal?.writeln(`[Runtime selected: ${selectedLabel}]`);
+    this.writeSystemLine(`[Runtime selected: ${selectedLabel}]`);
     if (this.processHandle) {
       this.setStatus(`${selectedLabel} selected (restart to apply)`);
       return;
@@ -333,14 +333,14 @@ class ClaudeCliView extends ItemView {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
       const message = "No active file detected.";
-      this.terminal?.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 4000);
       return;
     }
     if (!this.processHandle) {
       const message = `${this.getRuntimeLabel()} process is not running. Start it before inserting a file mention.`;
-      this.terminal?.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 5000);
       return;
@@ -350,6 +350,14 @@ class ClaudeCliView extends ItemView {
     this.processHandle.write(mention);
     this.terminal?.focus();
     this.setStatus(`Inserted ${mention.trim()}`);
+  }
+
+  private writeSystemLine(message: string): void {
+    if (!this.terminal) {
+      return;
+    }
+    this.terminal.write("\r\u001b[2K");
+    this.terminal.writeln(message);
   }
 }
 

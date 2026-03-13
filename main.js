@@ -9429,7 +9429,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.terminal.loadAddon(this.fitAddon);
     this.terminal.open(this.terminalHostEl);
     this.fitAddon.fit();
-    this.terminal.writeln("CLI panel ready.");
+    this.writeSystemLine("CLI panel ready.");
     this.terminal.onData((data) => {
       var _a5;
       (_a5 = this.processHandle) == null ? void 0 : _a5.write(data);
@@ -9449,7 +9449,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     if (this.plugin.settings.autoStart) {
       await this.startClaudeProcess();
     } else {
-      this.terminal.writeln(`Auto-start is disabled. Click Start to launch ${this.getRuntimeLabel()}.`);
+      this.writeSystemLine(`Auto-start is disabled. Click Start to launch ${this.getRuntimeLabel()}.`);
       this.setStatus("Idle");
     }
   }
@@ -9472,11 +9472,11 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     const targetLabel = this.getRuntimeLabel(targetRuntime);
     if (this.processHandle) {
       if (this.runningRuntime === targetRuntime) {
-        this.terminal.writeln(`[${targetLabel} process is already running]`);
+        this.writeSystemLine(`[${targetLabel} process is already running]`);
         this.setStatus("Already running");
       } else {
         this.pendingStartRuntime = targetRuntime;
-        this.terminal.writeln(`[Switch requested: ${targetLabel}. Stopping current process first...]`);
+        this.writeSystemLine(`[Switch requested: ${targetLabel}. Stopping current process first...]`);
         this.stopClaudeProcess(true);
       }
       return;
@@ -9486,13 +9486,13 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     if (targetRuntime === "codex") {
       this.resetTerminalDisplay();
     }
-    this.terminal.writeln(`[Starting: ${command}]`);
+    this.writeSystemLine(`[Starting: ${command}]`);
     this.setStatus(`Starting in vault folder (${process.platform})...`);
     try {
       const vaultPath = getVaultBasePath(this.app);
       if (!vaultPath) {
         const message = `Unable to resolve current vault path. ${runtimeLabel} was not started.`;
-        this.terminal.writeln(`[${message}]`);
+        this.writeSystemLine(`[${message}]`);
         this.setStatus(message);
         new import_obsidian.Notice(message, 6e3);
         return;
@@ -9500,7 +9500,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       const fs2 = require("fs");
       if (!fs2.existsSync(vaultPath)) {
         const message = `Vault path does not exist: ${vaultPath}`;
-        this.terminal.writeln(`[${message}]`);
+        this.writeSystemLine(`[${message}]`);
         this.setStatus(message);
         new import_obsidian.Notice(message, 6e3);
         return;
@@ -9525,7 +9525,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       this.runningRuntime = targetRuntime;
     } catch (error) {
       const message = `Failed to start process: ${error.message}`;
-      this.terminal.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new import_obsidian.Notice(message, 7e3);
       this.processHandle = null;
@@ -9538,9 +9538,8 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       (_a6 = this.terminal) == null ? void 0 : _a6.write(data);
     });
     this.processHandle.onExit((exitCode, signal) => {
-      var _a6;
       const message = `Process exited (code=${exitCode}, signal=${signal})`;
-      (_a6 = this.terminal) == null ? void 0 : _a6.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       this.processHandle = null;
       this.runningRuntime = null;
@@ -9553,20 +9552,19 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     (_a5 = this.fitAddon) == null ? void 0 : _a5.fit();
   }
   stopClaudeProcess(preservePendingStart = false) {
-    var _a5, _b;
     if (!this.processHandle) {
       return;
     }
     if (!preservePendingStart) {
       this.pendingStartRuntime = null;
     }
-    (_a5 = this.terminal) == null ? void 0 : _a5.writeln(`[Stopping ${this.getRunningRuntimeLabel()} process...]`);
+    this.writeSystemLine(`[Stopping ${this.getRunningRuntimeLabel()} process...]`);
     this.setStatus("Stopping...");
     try {
       this.processHandle.kill("SIGTERM");
     } catch (error) {
       const message = `Failed to stop process: ${error.message}`;
-      (_b = this.terminal) == null ? void 0 : _b.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new import_obsidian.Notice(message, 6e3);
     }
@@ -9591,14 +9589,13 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     return this.plugin.settings.command.trim();
   }
   restartClaudeProcess() {
-    var _a5;
     const targetRuntime = this.plugin.settings.runtime;
     if (!this.processHandle) {
       void this.startClaudeProcess(targetRuntime);
       return;
     }
     this.pendingStartRuntime = targetRuntime;
-    (_a5 = this.terminal) == null ? void 0 : _a5.writeln(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
+    this.writeSystemLine(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
     this.stopClaudeProcess(true);
   }
   resetTerminalDisplay() {
@@ -9610,7 +9607,6 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     (_a5 = this.fitAddon) == null ? void 0 : _a5.fit();
   }
   setRuntime(runtime) {
-    var _a5;
     if (this.plugin.settings.runtime === runtime) {
       return;
     }
@@ -9618,7 +9614,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     void this.plugin.saveSettings();
     this.updateRuntimeButtons();
     const selectedLabel = this.getRuntimeLabel();
-    (_a5 = this.terminal) == null ? void 0 : _a5.writeln(`[Runtime selected: ${selectedLabel}]`);
+    this.writeSystemLine(`[Runtime selected: ${selectedLabel}]`);
     if (this.processHandle) {
       this.setStatus(`${selectedLabel} selected (restart to apply)`);
       return;
@@ -9633,26 +9629,33 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.runtimeButtons.codex.toggleClass("is-active", this.plugin.settings.runtime === "codex");
   }
   insertActiveFileMention() {
-    var _a5, _b, _c2;
+    var _a5;
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
       const message = "No active file detected.";
-      (_a5 = this.terminal) == null ? void 0 : _a5.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new import_obsidian.Notice(message, 4e3);
       return;
     }
     if (!this.processHandle) {
       const message = `${this.getRuntimeLabel()} process is not running. Start it before inserting a file mention.`;
-      (_b = this.terminal) == null ? void 0 : _b.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new import_obsidian.Notice(message, 5e3);
       return;
     }
     const mention = formatActiveFileMention(activeFile.path);
     this.processHandle.write(mention);
-    (_c2 = this.terminal) == null ? void 0 : _c2.focus();
+    (_a5 = this.terminal) == null ? void 0 : _a5.focus();
     this.setStatus(`Inserted ${mention.trim()}`);
+  }
+  writeSystemLine(message) {
+    if (!this.terminal) {
+      return;
+    }
+    this.terminal.write("\r\x1B[2K");
+    this.terminal.writeln(message);
   }
 };
 var ClaudeCliPlugin = class extends import_obsidian.Plugin {
