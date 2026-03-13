@@ -92,6 +92,14 @@ function buildScriptLaunches(command, launches) {
   return wrappers;
 }
 
+function isCodexCommand(command) {
+  if (!command || typeof command !== "string") {
+    return false;
+  }
+  const trimmed = command.trim();
+  return trimmed === "codex" || trimmed.startsWith("codex ");
+}
+
 function resolvePythonExecutable() {
   const candidates = [
     process.env.PYTHON,
@@ -165,50 +173,62 @@ async function main() {
     process.stderr.write(`[proxy-warn] PTY unavailable, switching to pipe mode: ${error.message}\n`);
     mode = "pipe";
     try {
-      try {
-        term = spawnPythonBridge(
-          {
-            cwd: payload.cwd,
-            env: {
-              ...payload.env,
-              TERM: "xterm-256color"
-            }
-          },
-          launches
-        );
-        process.stderr.write("[proxy-info] python PTY bridge fallback started\n");
-      } catch (pythonError) {
-        process.stderr.write(`[proxy-warn] python bridge failed, trying direct pipe: ${pythonError.message}\n`);
-        try {
-          term = spawnPipeWithFallback(launches, {
-            cwd: payload.cwd,
-            env: {
-              ...payload.env,
-              TERM: "xterm-256color"
-            }
-          });
-          process.stderr.write("[proxy-info] direct pipe fallback started\n");
-        } catch (pipeError) {
-          const scriptLaunches = buildScriptLaunches(payload.command, launches);
-          if (scriptLaunches.length === 0) {
-            process.stderr.write(`[proxy-error] ${pipeError.message}\n`);
-            process.exit(1);
-            return;
-          }
+      const fallbackEnv = {
+        ...payload.env,
+        TERM: "xterm-256color"
+      };
+      const scriptLaunches = buildScriptLaunches(payload.command, launches);
+      const preferScript = isCodexCommand(payload.command) && scriptLaunches.length > 0;
 
-          process.stderr.write(`[proxy-warn] direct pipe failed, trying system 'script': ${pipeError.message}\n`);
-          try {
-            term = spawnPipeWithFallback(scriptLaunches, {
+      if (preferScript) {
+        process.stderr.write("[proxy-info] codex detected, trying system 'script' fallback first\n");
+        try {
+          term = spawnPipeWithFallback(scriptLaunches, {
+            cwd: payload.cwd,
+            env: fallbackEnv
+          });
+          process.stderr.write("[proxy-info] script fallback started\n");
+        } catch (scriptError) {
+          process.stderr.write(`[proxy-warn] script fallback failed, trying python bridge: ${scriptError.message}\n`);
+        }
+      }
+
+      if (!term) {
+        try {
+          term = spawnPythonBridge(
+            {
               cwd: payload.cwd,
-              env: {
-                ...payload.env,
-                TERM: "xterm-256color"
-              }
+              env: fallbackEnv
+            },
+            launches
+          );
+          process.stderr.write("[proxy-info] python PTY bridge fallback started\n");
+        } catch (pythonError) {
+          process.stderr.write(`[proxy-warn] python bridge failed, trying direct pipe: ${pythonError.message}\n`);
+          try {
+            term = spawnPipeWithFallback(launches, {
+              cwd: payload.cwd,
+              env: fallbackEnv
             });
-          } catch (scriptError) {
-            process.stderr.write(`[proxy-error] ${scriptError.message}\n`);
-            process.exit(1);
-            return;
+            process.stderr.write("[proxy-info] direct pipe fallback started\n");
+          } catch (pipeError) {
+            if (scriptLaunches.length === 0) {
+              process.stderr.write(`[proxy-error] ${pipeError.message}\n`);
+              process.exit(1);
+              return;
+            }
+
+            process.stderr.write(`[proxy-warn] direct pipe failed, trying system 'script': ${pipeError.message}\n`);
+            try {
+              term = spawnPipeWithFallback(scriptLaunches, {
+                cwd: payload.cwd,
+                env: fallbackEnv
+              });
+            } catch (scriptError) {
+              process.stderr.write(`[proxy-error] ${scriptError.message}\n`);
+              process.exit(1);
+              return;
+            }
           }
         }
       }

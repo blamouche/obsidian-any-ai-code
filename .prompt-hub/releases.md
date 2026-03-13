@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.6 - 2026-03-13
+- Updated proxy fallback strategy for Codex: when `node-pty` is unavailable, try system `script` pseudo-TTY fallback before python bridge to avoid hangs after startup.
+
 ## 0.1.5 - 2026-03-13
 - Added terminal query auto-response handling for Codex startup (`ESC[6n`, `ESC[c`, OSC 10/11) to prevent black-screen stalls when embedded terminal replies are missing.
 
