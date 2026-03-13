@@ -9535,6 +9535,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.setStatus("Running");
     this.processHandle.onData((data) => {
       var _a6;
+      this.respondToTerminalQueries(data);
       (_a6 = this.terminal) == null ? void 0 : _a6.write(data);
     });
     this.processHandle.onExit((exitCode, signal) => {
@@ -9608,6 +9609,23 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     }
     this.terminal.reset();
     (_a5 = this.fitAddon) == null ? void 0 : _a5.fit();
+  }
+  respondToTerminalQueries(data) {
+    if (!this.processHandle || data.length === 0) {
+      return;
+    }
+    if (data.includes("\x1B[6n")) {
+      this.processHandle.write("\x1B[1;1R");
+    }
+    if (data.includes("\x1B[c")) {
+      this.processHandle.write("\x1B[?62;c");
+    }
+    if (data.includes("\x1B]10;?\x07") || data.includes("\x1B]10;?\x1B\\")) {
+      this.processHandle.write("\x1B]10;rgb:e6e6/e6e6/e6e6\x07");
+    }
+    if (data.includes("\x1B]11;?\x07") || data.includes("\x1B]11;?\x1B\\")) {
+      this.processHandle.write("\x1B]11;rgb:0f0f/1111/1515\x07");
+    }
   }
   setRuntime(runtime) {
     var _a5;

@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.5 - 2026-03-13
+- Added terminal query auto-response handling for Codex startup (`ESC[6n`, `ESC[c`, OSC 10/11) to prevent black-screen stalls when embedded terminal replies are missing.
+
 ## 0.1.4 - 2026-03-13
 - Added terminal reset before Codex launches to clear stale display modes that can cause blank rendering after restart.
 - Added Codex launch env overrides (`NO_COLOR=1`, `CLICOLOR=0`, `FORCE_COLOR=0`) to improve embedded terminal readability.

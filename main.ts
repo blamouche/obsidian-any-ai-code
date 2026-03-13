@@ -219,6 +219,7 @@ class ClaudeCliView extends ItemView {
     this.setStatus("Running");
 
     this.processHandle.onData((data: string) => {
+      this.respondToTerminalQueries(data);
       this.terminal?.write(data);
     });
 
@@ -300,6 +301,25 @@ class ClaudeCliView extends ItemView {
 
     this.terminal.reset();
     this.fitAddon?.fit();
+  }
+
+  private respondToTerminalQueries(data: string): void {
+    if (!this.processHandle || data.length === 0) {
+      return;
+    }
+
+    if (data.includes("\u001b[6n")) {
+      this.processHandle.write("\u001b[1;1R");
+    }
+    if (data.includes("\u001b[c")) {
+      this.processHandle.write("\u001b[?62;c");
+    }
+    if (data.includes("\u001b]10;?\u0007") || data.includes("\u001b]10;?\u001b\\")) {
+      this.processHandle.write("\u001b]10;rgb:e6e6/e6e6/e6e6\u0007");
+    }
+    if (data.includes("\u001b]11;?\u0007") || data.includes("\u001b]11;?\u001b\\")) {
+      this.processHandle.write("\u001b]11;rgb:0f0f/1111/1515\u0007");
+    }
   }
 
   private setRuntime(runtime: CliRuntime): void {
