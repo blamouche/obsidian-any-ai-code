@@ -1,5 +1,8 @@
 # Releases
 
+## 0.0.3 - 2026-03-13
+- Added session memory log entry covering governance versioning and repository synchronization (`git commit` + `git push`).
+
 ## 0.0.2 - 2026-03-13
 - Applied mandatory `agents.md` startup workflow for this session.
 - Added/updated Prompt Hub governance artifacts: `.last-update-check`, `lessons.md`, task todo initialization, and memory log entries.
