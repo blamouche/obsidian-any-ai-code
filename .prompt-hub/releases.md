@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.1 - 2026-03-13
+- Fixed dropped early process output/events by attaching PTY proxy listeners immediately and buffering startup data until UI callbacks register.
+- This makes Codex startup errors and early logs visible instead of appearing as a blank terminal.
+- Updated runtime-not-running message for active-file mention insertion to match selected runtime.
+
 ## 0.1.0 - 2026-03-13
 - Added an in-panel runtime switch (`Claude` / `Codex`) so users can choose which CLI to launch without opening plugin settings.
 - Persisted runtime choice and applied it to start/restart behavior, with runtime-aware status/terminal messages.

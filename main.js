@@ -9591,7 +9591,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       return;
     }
     if (!this.processHandle) {
-      const message = "Claude process is not running. Start it before inserting a file mention.";
+      const message = `${this.getRuntimeLabel()} process is not running. Start it before inserting a file mention.`;
       (_b = this.terminal) == null ? void 0 : _b.writeln(`[${message}]`);
       this.setStatus(message);
       new import_obsidian.Notice(message, 5e3);
@@ -9778,10 +9778,35 @@ function spawnPtyProxy(params) {
   });
 }
 function makeProxyAdapter(handle) {
+  var _a5, _b;
+  const dataCallbacks = [];
+  const exitCallbacks = [];
+  const pendingData = [];
+  let pendingExit = null;
+  const emitData = (chunk) => {
+    const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+    if (dataCallbacks.length === 0) {
+      pendingData.push(text);
+      return;
+    }
+    dataCallbacks.forEach((callback) => callback(text));
+  };
+  const emitExit = (code, signal) => {
+    const exitCode = code != null ? code : -1;
+    const exitSignal = signal != null ? signal : "none";
+    if (exitCallbacks.length === 0) {
+      pendingExit = { code: exitCode, signal: exitSignal };
+      return;
+    }
+    exitCallbacks.forEach((callback) => callback(exitCode, exitSignal));
+  };
+  (_a5 = handle.stdout) == null ? void 0 : _a5.on("data", emitData);
+  (_b = handle.stderr) == null ? void 0 : _b.on("data", emitData);
+  handle.on("exit", emitExit);
   return {
     write(data) {
-      var _a5;
-      if ((_a5 = handle.stdin) == null ? void 0 : _a5.writable) {
+      var _a6;
+      if ((_a6 = handle.stdin) == null ? void 0 : _a6.writable) {
         handle.stdin.write(data);
       }
     },
@@ -9794,18 +9819,17 @@ function makeProxyAdapter(handle) {
       handle.kill(signal);
     },
     onData(callback) {
-      var _a5, _b;
-      (_a5 = handle.stdout) == null ? void 0 : _a5.on("data", (chunk) => {
-        callback(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
-      });
-      (_b = handle.stderr) == null ? void 0 : _b.on("data", (chunk) => {
-        callback(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
-      });
+      dataCallbacks.push(callback);
+      if (pendingData.length > 0) {
+        pendingData.splice(0, pendingData.length).forEach((chunk) => callback(chunk));
+      }
     },
     onExit(callback) {
-      handle.on("exit", (code, signal) => {
-        callback(code != null ? code : -1, signal != null ? signal : "none");
-      });
+      exitCallbacks.push(callback);
+      if (pendingExit) {
+        callback(pendingExit.code, pendingExit.signal);
+        pendingExit = null;
+      }
     }
   };
 }

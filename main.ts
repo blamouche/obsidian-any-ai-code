@@ -280,7 +280,7 @@ class ClaudeCliView extends ItemView {
       return;
     }
     if (!this.processHandle) {
-      const message = "Claude process is not running. Start it before inserting a file mention.";
+      const message = `${this.getRuntimeLabel()} process is not running. Start it before inserting a file mention.`;
       this.terminal?.writeln(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 5000);
@@ -534,6 +534,34 @@ function spawnPtyProxy(params: {
 }
 
 function makeProxyAdapter(handle: ChildProcess): ProcessAdapter {
+  const dataCallbacks: Array<(data: string) => void> = [];
+  const exitCallbacks: Array<(exitCode: number, signal: string) => void> = [];
+  const pendingData: string[] = [];
+  let pendingExit: { code: number; signal: string } | null = null;
+
+  const emitData = (chunk: Buffer | string) => {
+    const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+    if (dataCallbacks.length === 0) {
+      pendingData.push(text);
+      return;
+    }
+    dataCallbacks.forEach((callback) => callback(text));
+  };
+
+  const emitExit = (code: number | null, signal: NodeJS.Signals | null) => {
+    const exitCode = code ?? -1;
+    const exitSignal = signal ?? "none";
+    if (exitCallbacks.length === 0) {
+      pendingExit = { code: exitCode, signal: exitSignal };
+      return;
+    }
+    exitCallbacks.forEach((callback) => callback(exitCode, exitSignal));
+  };
+
+  handle.stdout?.on("data", emitData);
+  handle.stderr?.on("data", emitData);
+  handle.on("exit", emitExit);
+
   return {
     write(data: string) {
       if (handle.stdin?.writable) {
@@ -549,17 +577,17 @@ function makeProxyAdapter(handle: ChildProcess): ProcessAdapter {
       handle.kill(signal as NodeJS.Signals | number | undefined);
     },
     onData(callback: (data: string) => void) {
-      handle.stdout?.on("data", (chunk: Buffer | string) => {
-        callback(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
-      });
-      handle.stderr?.on("data", (chunk: Buffer | string) => {
-        callback(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
-      });
+      dataCallbacks.push(callback);
+      if (pendingData.length > 0) {
+        pendingData.splice(0, pendingData.length).forEach((chunk) => callback(chunk));
+      }
     },
     onExit(callback: (exitCode: number, signal: string) => void) {
-      handle.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
-        callback(code ?? -1, signal ?? "none");
-      });
+      exitCallbacks.push(callback);
+      if (pendingExit) {
+        callback(pendingExit.code, pendingExit.signal);
+        pendingExit = null;
+      }
     }
   };
 }
