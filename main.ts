@@ -452,8 +452,22 @@ class ClaudeCliSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Default runtime")
+      .setDesc("Runtime selected by default when opening the panel (and used by auto-start).")
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("claude", "Claude")
+          .addOption("codex", "Codex")
+          .setValue(this.plugin.settings.runtime)
+          .onChange(async (value) => {
+            this.plugin.settings.runtime = (value === "codex" ? "codex" : "claude") as CliRuntime;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
       .setName("Auto-start")
-      .setDesc("Automatically start Claude when the panel opens.")
+      .setDesc("Automatically start the selected default runtime when the panel opens.")
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoStart)

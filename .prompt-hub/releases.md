@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.16 - 2026-03-14
+- Added a `Default runtime` switch in plugin settings (`Claude` / `Codex`) to choose which runtime is selected and launched by default at panel startup.
+- Updated `Auto-start` setting description to reflect that it starts the selected default runtime.
+
 ## 0.1.15 - 2026-03-13
 - Added a dedicated `Codex command` setting in the plugin configuration panel.
 - Codex runtime launch now uses configurable `codexCommand` settings value instead of a hardcoded command.

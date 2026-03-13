@@ -13,6 +13,8 @@
 - Added `codexCommand` to persisted plugin settings with sensible default.
 - Codex runtime launch now reads command from settings (`codexCommand`) with fallback to default.
 - Added `Codex command` text input in settings panel.
+- Added `Default runtime` dropdown in settings panel (`Claude` / `Codex`) to choose what is selected/launched by default at panel startup.
+- Updated `Auto-start` description to reference the selected default runtime.
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (`12/12` tests).
