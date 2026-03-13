@@ -16,13 +16,14 @@ Use this prompt as the default operating policy for AI agents across all tasks a
 
 ## Task Management
 
-- Plan first: write a plan with checkable items to `.prompt-hub/todo.md`.
+- Plan first: create a task file at `.prompt-hub/todo/todo-<timestamp>-<slug>.md` where `<timestamp>` is the current date-time in `YYYYMMDD-HHmmss` format and `<slug>` is a short kebab-case identifier for the task (e.g. `todo-20260313-143000-add-auth.md`).
+- Each task gets its own file; never reuse or overwrite an existing todo file for a different task.
 - For non-trivial tasks (3+ steps or architectural decisions): use plan mode.
 - Verify plan: check in before starting implementation.
 - If something goes sideways, stop and re-plan immediately — do not keep pushing.
 - Track progress: mark items complete as you go.
 - Explain changes: provide a high-level summary at each step.
-- Document results: add a review section to `.prompt-hub/todo.md` when done.
+- Document results: add a review section to the task's todo file when done.
 - Capture lessons: update `.prompt-hub/lessons.md` after corrections.
 
 ## Operating Rules
