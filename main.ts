@@ -239,6 +239,7 @@ class ClaudeCliView extends ItemView {
 
     const mention = formatActiveFileMention(activeFile.path);
     this.processHandle.write(mention);
+    this.terminal?.focus();
     this.setStatus(`Inserted ${mention.trim()}`);
   }
 }

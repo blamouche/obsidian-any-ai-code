@@ -1,5 +1,8 @@
 # Releases
 
+## 0.0.6 - 2026-03-13
+- Improved `@Fichier actif` button behavior by automatically restoring focus to the embedded CLI terminal after inserting the mention.
+
 ## 0.0.5 - 2026-03-13
 - Changed active-file mention insertion to use the full vault-relative path (`activeFile.path`) instead of filename only.
 - Updated mention helper tests to cover path-based mention formatting.

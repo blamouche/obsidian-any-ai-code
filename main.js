@@ -9539,7 +9539,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     (_a5 = this.statusEl) == null ? void 0 : _a5.setText(`Status: ${message}`);
   }
   insertActiveFileMention() {
-    var _a5, _b;
+    var _a5, _b, _c2;
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
       const message = "No active file detected.";
@@ -9557,6 +9557,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     }
     const mention = formatActiveFileMention(activeFile.path);
     this.processHandle.write(mention);
+    (_c2 = this.terminal) == null ? void 0 : _c2.focus();
     this.setStatus(`Inserted ${mention.trim()}`);
   }
 };
