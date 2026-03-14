@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.18 - 2026-03-14
+- Improved toolbar UI by adding Obsidian/Lucide pictograms to action buttons and runtime switch buttons.
+- Added icon-specific alignment/sizing styles for cleaner button presentation.
+
 ## 0.1.17 - 2026-03-14
 - Added an `Auto-restart on runtime switch` option in plugin settings.
 - When enabled, switching runtime (`Claude`/`Codex`) from the toolbar automatically restarts the running process to apply the selected runtime immediately.

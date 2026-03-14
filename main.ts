@@ -1,4 +1,4 @@
-import { App, FileSystemAdapter, ItemView, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf } from "obsidian";
+import { App, FileSystemAdapter, ItemView, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, setIcon } from "obsidian";
 import type { ChildProcess } from "child_process";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -81,6 +81,13 @@ class ClaudeCliView extends ItemView {
     const runtimeToggleEl = toolbarEl.createDiv({ cls: "claude-cli-runtime-toggle" });
     const claudeBtn = runtimeToggleEl.createEl("button", { text: "Claude" });
     const codexBtn = runtimeToggleEl.createEl("button", { text: "Codex" });
+    this.setButtonIcon(startBtn, "play", "Start");
+    this.setButtonIcon(stopBtn, "square", "Stop");
+    this.setButtonIcon(restartBtn, "refresh-cw", "Restart");
+    this.setButtonIcon(clearBtn, "eraser", "Clear");
+    this.setButtonIcon(mentionBtn, "file-plus", "@Fichier actif");
+    this.setButtonIcon(claudeBtn, "bot", "Claude");
+    this.setButtonIcon(codexBtn, "code-2", "Codex");
     this.runtimeButtons = { claude: claudeBtn, codex: codexBtn };
     this.updateRuntimeButtons();
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
@@ -366,6 +373,14 @@ class ClaudeCliView extends ItemView {
     }
     this.terminal.write("\r\u001b[2K");
     this.terminal.writeln(message);
+  }
+
+  private setButtonIcon(buttonEl: HTMLButtonElement, iconName: string, label: string): void {
+    buttonEl.empty();
+    buttonEl.addClass("claude-cli-btn");
+    const iconEl = buttonEl.createSpan({ cls: "claude-cli-btn-icon" });
+    setIcon(iconEl, iconName);
+    buttonEl.createSpan({ text: label });
   }
 }
 

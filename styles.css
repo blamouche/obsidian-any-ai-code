@@ -26,6 +26,24 @@
   background: var(--interactive-hover);
 }
 
+.claude-cli-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.claude-cli-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.claude-cli-btn-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.1;
+}
+
 .claude-cli-runtime-toggle {
   display: inline-flex;
   border: 1px solid var(--background-modifier-border);

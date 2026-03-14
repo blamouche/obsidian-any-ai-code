@@ -9402,6 +9402,13 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     const runtimeToggleEl = toolbarEl.createDiv({ cls: "claude-cli-runtime-toggle" });
     const claudeBtn = runtimeToggleEl.createEl("button", { text: "Claude" });
     const codexBtn = runtimeToggleEl.createEl("button", { text: "Codex" });
+    this.setButtonIcon(startBtn, "play", "Start");
+    this.setButtonIcon(stopBtn, "square", "Stop");
+    this.setButtonIcon(restartBtn, "refresh-cw", "Restart");
+    this.setButtonIcon(clearBtn, "eraser", "Clear");
+    this.setButtonIcon(mentionBtn, "file-plus", "@Fichier actif");
+    this.setButtonIcon(claudeBtn, "bot", "Claude");
+    this.setButtonIcon(codexBtn, "code-2", "Codex");
     this.runtimeButtons = { claude: claudeBtn, codex: codexBtn };
     this.updateRuntimeButtons();
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
@@ -9663,6 +9670,13 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     }
     this.terminal.write("\r\x1B[2K");
     this.terminal.writeln(message);
+  }
+  setButtonIcon(buttonEl, iconName, label) {
+    buttonEl.empty();
+    buttonEl.addClass("claude-cli-btn");
+    const iconEl = buttonEl.createSpan({ cls: "claude-cli-btn-icon" });
+    (0, import_obsidian.setIcon)(iconEl, iconName);
+    buttonEl.createSpan({ text: label });
   }
 };
 var ClaudeCliPlugin = class extends import_obsidian.Plugin {
