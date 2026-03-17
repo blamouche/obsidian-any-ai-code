@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   command: "claude",
   codexCommand:
     "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true",
-  autoRestartOnRuntimeSwitch: false,
+  autoRestartOnRuntimeSwitch: true,
   autoStart: true,
   nodeExecutable: "auto",
   runtime: "claude"
@@ -447,9 +447,57 @@ class ClaudeCliSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
+    containerEl.createEl("h2", { text: "CLI AI Assistant" });
+    containerEl.createEl("p", {
+      text: "Configure runtime behavior, launch commands, and advanced execution options.",
+      cls: "setting-item-description"
+    });
+
+    containerEl.createEl("h3", { text: "Runtime behavior" });
+
     new Setting(containerEl)
-      .setName("Command")
-      .setDesc("Command used to launch Claude Code in the embedded terminal.")
+      .setName("Default runtime")
+      .setDesc("Runtime selected by default when opening the panel (and used by auto-start).")
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("claude", "Claude")
+          .addOption("codex", "Codex")
+          .setValue(this.plugin.settings.runtime)
+          .onChange(async (value) => {
+            this.plugin.settings.runtime = (value === "codex" ? "codex" : "claude") as CliRuntime;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Auto-start")
+      .setDesc("Automatically start the selected default runtime when the panel opens.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.autoStart)
+          .onChange(async (value) => {
+            this.plugin.settings.autoStart = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Auto-restart on runtime switch")
+      .setDesc("Automatically restart the running process when switching Claude/Codex from the toolbar.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.autoRestartOnRuntimeSwitch)
+          .onChange(async (value) => {
+            this.plugin.settings.autoRestartOnRuntimeSwitch = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    containerEl.createEl("h3", { text: "Commands" });
+
+    new Setting(containerEl)
+      .setName("Claude command")
+      .setDesc("Command used to launch Claude in the embedded terminal.")
       .addText((text) =>
         text
           .setPlaceholder("claude")
@@ -473,43 +521,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl)
-      .setName("Default runtime")
-      .setDesc("Runtime selected by default when opening the panel (and used by auto-start).")
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption("claude", "Claude")
-          .addOption("codex", "Codex")
-          .setValue(this.plugin.settings.runtime)
-          .onChange(async (value) => {
-            this.plugin.settings.runtime = (value === "codex" ? "codex" : "claude") as CliRuntime;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName("Auto-restart on runtime switch")
-      .setDesc("Automatically restart the running process when switching Claude/Codex from the toolbar.")
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.autoRestartOnRuntimeSwitch)
-          .onChange(async (value) => {
-            this.plugin.settings.autoRestartOnRuntimeSwitch = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName("Auto-start")
-      .setDesc("Automatically start the selected default runtime when the panel opens.")
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.autoStart)
-          .onChange(async (value) => {
-            this.plugin.settings.autoStart = value;
-            await this.plugin.saveSettings();
-          })
-      );
+    containerEl.createEl("h3", { text: "Advanced" });
 
     new Setting(containerEl)
       .setName("Node executable")

@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.21 - 2026-03-17
+- Reworked the settings screen structure for better visual and functional coherence with grouped sections: `Runtime behavior`, `Commands`, and `Advanced`.
+- Made setting labels/descriptions more consistent (including explicit `Claude command` naming).
+- Changed default behavior so `Auto-restart on runtime switch` is now enabled by default.
+
 ## 0.1.20 - 2026-03-17
 - Changed module icon to a robot-style icon (`bot`).
 - Changed module hover/title label to `CLI AI Assistant`.
