@@ -61,11 +61,11 @@ class ClaudeCliView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Claude Code";
+    return "CLI AI Assistant";
   }
 
   getIcon(): string {
-    return "terminal";
+    return "bot";
   }
 
   async onOpen(): Promise<void> {
@@ -392,13 +392,13 @@ export default class ClaudeCliPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE_CLAUDE, (leaf) => new ClaudeCliView(leaf, this));
 
-    this.addRibbonIcon("terminal", "Open Claude Code panel", async () => {
+    this.addRibbonIcon("bot", "Open CLI AI Assistant", async () => {
       await this.activateView();
     });
 
     this.addCommand({
       id: "open-claude-code-panel",
-      name: "Open Claude Code panel",
+      name: "Open CLI AI Assistant",
       callback: async () => {
         await this.activateView();
       }

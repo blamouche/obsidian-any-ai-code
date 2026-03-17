@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.20 - 2026-03-17
+- Changed module icon to a robot-style icon (`bot`).
+- Changed module hover/title label to `CLI AI Assistant`.
+- Updated ribbon icon/tooltip and command label for consistent naming.
+
 ## 0.1.19 - 2026-03-17
 - Process compliance update: strengthened correction handling by adding an explicit lesson to revalidate requested context before concluding no change is needed.
 
