@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.19 - 2026-03-17
+- Process compliance update: strengthened correction handling by adding an explicit lesson to revalidate requested context before concluding no change is needed.
+
 ## 0.1.18 - 2026-03-14
 - Improved toolbar UI by adding Obsidian/Lucide pictograms to action buttons and runtime switch buttons.
 - Added icon-specific alignment/sizing styles for cleaner button presentation.
