@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.22 - 2026-03-17
+- Translated the toolbar mention button label from `@Fichier actif` to `@Active file`.
+- Updated the corresponding button tooltip/accessible label to English for consistency.
+
 ## 0.1.21 - 2026-03-17
 - Reworked the settings screen structure for better visual and functional coherence with grouped sections: `Runtime behavior`, `Commands`, and `Advanced`.
 - Made setting labels/descriptions more consistent (including explicit `Claude command` naming).

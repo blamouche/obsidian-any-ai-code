@@ -77,7 +77,7 @@ class ClaudeCliView extends ItemView {
     const stopBtn = toolbarEl.createEl("button", { text: "Stop" });
     const restartBtn = toolbarEl.createEl("button", { text: "Restart" });
     const clearBtn = toolbarEl.createEl("button", { text: "Clear" });
-    const mentionBtn = toolbarEl.createEl("button", { text: "@Fichier actif" });
+    const mentionBtn = toolbarEl.createEl("button", { text: "@Active file" });
     const runtimeToggleEl = toolbarEl.createDiv({ cls: "claude-cli-runtime-toggle" });
     const claudeBtn = runtimeToggleEl.createEl("button", { text: "Claude" });
     const codexBtn = runtimeToggleEl.createEl("button", { text: "Codex" });
@@ -85,7 +85,7 @@ class ClaudeCliView extends ItemView {
     this.setButtonIcon(stopBtn, "square", "Stop");
     this.setButtonIcon(restartBtn, "refresh-cw", "Restart");
     this.setButtonIcon(clearBtn, "eraser", "Clear");
-    this.setButtonIcon(mentionBtn, "file-plus", "@Fichier actif");
+    this.setButtonIcon(mentionBtn, "file-plus", "@Active file");
     this.setButtonIcon(claudeBtn, "bot", "Claude");
     this.setButtonIcon(codexBtn, "code-2", "Codex");
     this.runtimeButtons = { claude: claudeBtn, codex: codexBtn };
