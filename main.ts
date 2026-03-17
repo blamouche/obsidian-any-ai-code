@@ -1,4 +1,4 @@
-import { App, FileSystemAdapter, ItemView, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf } from "obsidian";
+import { App, FileSystemAdapter, ItemView, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, setIcon } from "obsidian";
 import type { ChildProcess } from "child_process";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -10,17 +10,25 @@ import {
 } from "./runtime-utils";
 
 const VIEW_TYPE_CLAUDE = "claude-cli-view";
+type CliRuntime = "claude" | "codex";
 
 interface ClaudeCliPluginSettings {
   command: string;
+  codexCommand: string;
+  autoRestartOnRuntimeSwitch: boolean;
   autoStart: boolean;
   nodeExecutable: string;
+  runtime: CliRuntime;
 }
 
 const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   command: "claude",
+  codexCommand:
+    "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true",
+  autoRestartOnRuntimeSwitch: false,
   autoStart: true,
-  nodeExecutable: "auto"
+  nodeExecutable: "auto",
+  runtime: "claude"
 };
 
 interface ProcessAdapter {
@@ -39,6 +47,9 @@ class ClaudeCliView extends ItemView {
   private terminalHostEl: HTMLDivElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private statusEl: HTMLDivElement | null = null;
+  private runtimeButtons: Record<CliRuntime, HTMLButtonElement> | null = null;
+  private runningRuntime: CliRuntime | null = null;
+  private pendingStartRuntime: CliRuntime | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: ClaudeCliPlugin) {
     super(leaf);
@@ -67,16 +78,27 @@ class ClaudeCliView extends ItemView {
     const restartBtn = toolbarEl.createEl("button", { text: "Restart" });
     const clearBtn = toolbarEl.createEl("button", { text: "Clear" });
     const mentionBtn = toolbarEl.createEl("button", { text: "@Fichier actif" });
+    const runtimeToggleEl = toolbarEl.createDiv({ cls: "claude-cli-runtime-toggle" });
+    const claudeBtn = runtimeToggleEl.createEl("button", { text: "Claude" });
+    const codexBtn = runtimeToggleEl.createEl("button", { text: "Codex" });
+    this.setButtonIcon(startBtn, "play", "Start");
+    this.setButtonIcon(stopBtn, "square", "Stop");
+    this.setButtonIcon(restartBtn, "refresh-cw", "Restart");
+    this.setButtonIcon(clearBtn, "eraser", "Clear");
+    this.setButtonIcon(mentionBtn, "file-plus", "@Fichier actif");
+    this.setButtonIcon(claudeBtn, "bot", "Claude");
+    this.setButtonIcon(codexBtn, "code-2", "Codex");
+    this.runtimeButtons = { claude: claudeBtn, codex: codexBtn };
+    this.updateRuntimeButtons();
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
 
     startBtn.addEventListener("click", () => this.startClaudeProcess());
     stopBtn.addEventListener("click", () => this.stopClaudeProcess());
-    restartBtn.addEventListener("click", async () => {
-      this.stopClaudeProcess();
-      await this.startClaudeProcess();
-    });
+    restartBtn.addEventListener("click", () => this.restartClaudeProcess());
     clearBtn.addEventListener("click", () => this.terminal?.clear());
     mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
+    claudeBtn.addEventListener("click", () => this.setRuntime("claude"));
+    codexBtn.addEventListener("click", () => this.setRuntime("codex"));
 
     this.terminalHostEl = this.contentEl.createDiv({ cls: "claude-cli-terminal" });
 
@@ -96,7 +118,7 @@ class ClaudeCliView extends ItemView {
     this.terminal.loadAddon(this.fitAddon);
     this.terminal.open(this.terminalHostEl);
     this.fitAddon.fit();
-    this.terminal.writeln("Claude panel ready.");
+    this.writeSystemLine("CLI panel ready.");
 
     this.terminal.onData((data) => {
       this.processHandle?.write(data);
@@ -116,7 +138,7 @@ class ClaudeCliView extends ItemView {
     if (this.plugin.settings.autoStart) {
       await this.startClaudeProcess();
     } else {
-      this.terminal.writeln("Auto-start is disabled. Click Start to launch Claude.");
+      this.writeSystemLine(`Auto-start is disabled. Click Start to launch ${this.getRuntimeLabel()}.`);
       this.setStatus("Idle");
     }
   }
@@ -131,26 +153,39 @@ class ClaudeCliView extends ItemView {
     this.statusEl = null;
   }
 
-  async startClaudeProcess(): Promise<void> {
+  async startClaudeProcess(runtimeOverride?: CliRuntime): Promise<void> {
     if (!this.terminal) {
       return;
     }
+    const targetRuntime = runtimeOverride ?? this.plugin.settings.runtime;
+    const targetLabel = this.getRuntimeLabel(targetRuntime);
+
     if (this.processHandle) {
-      this.terminal.writeln("[Claude process is already running]");
-      this.setStatus("Already running");
+      if (this.runningRuntime === targetRuntime) {
+        this.writeSystemLine(`[${targetLabel} process is already running]`);
+        this.setStatus("Already running");
+      } else {
+        this.pendingStartRuntime = targetRuntime;
+        this.writeSystemLine(`[Switch requested: ${targetLabel}. Stopping current process first...]`);
+        this.stopClaudeProcess(true);
+      }
       return;
     }
 
-    const command = this.plugin.settings.command.trim();
+    const runtimeLabel = this.getRuntimeLabel(targetRuntime);
+    const command = this.getRuntimeCommand(targetRuntime);
+    if (targetRuntime === "codex") {
+      this.resetTerminalDisplay();
+    }
 
-    this.terminal.writeln(`[Starting: ${command}]`);
+    this.writeSystemLine(`[Starting: ${command}]`);
     this.setStatus(`Starting in vault folder (${process.platform})...`);
 
     try {
       const vaultPath = getVaultBasePath(this.app);
       if (!vaultPath) {
-        const message = "Unable to resolve current vault path. Claude was not started.";
-        this.terminal.writeln(`[${message}]`);
+        const message = `Unable to resolve current vault path. ${runtimeLabel} was not started.`;
+        this.writeSystemLine(`[${message}]`);
         this.setStatus(message);
         new Notice(message, 6000);
         return;
@@ -158,16 +193,24 @@ class ClaudeCliView extends ItemView {
       const fs = require("fs") as typeof import("fs");
       if (!fs.existsSync(vaultPath)) {
         const message = `Vault path does not exist: ${vaultPath}`;
-        this.terminal.writeln(`[${message}]`);
+        this.writeSystemLine(`[${message}]`);
         this.setStatus(message);
         new Notice(message, 6000);
         return;
       }
 
+      const shellEnv = getShellEnv();
+      if (targetRuntime === "codex") {
+        // Keep Codex output readable in embedded terminals.
+        shellEnv.NO_COLOR = "1";
+        shellEnv.CLICOLOR = "0";
+        shellEnv.FORCE_COLOR = "0";
+      }
+
       const helperHandle = spawnPtyProxy({
         command,
         cwd: vaultPath,
-        env: getShellEnv(),
+        env: shellEnv,
         cols: Math.max(20, this.terminal.cols || 120),
         rows: Math.max(10, this.terminal.rows || 30),
         nodeExecutable: this.plugin.settings.nodeExecutable,
@@ -175,12 +218,14 @@ class ClaudeCliView extends ItemView {
         vaultPath
       });
       this.processHandle = makeProxyAdapter(helperHandle);
+      this.runningRuntime = targetRuntime;
     } catch (error) {
       const message = `Failed to start process: ${(error as Error).message}`;
-      this.terminal.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 7000);
       this.processHandle = null;
+      this.runningRuntime = null;
       return;
     }
     this.setStatus("Running");
@@ -191,26 +236,35 @@ class ClaudeCliView extends ItemView {
 
     this.processHandle.onExit((exitCode, signal) => {
       const message = `Process exited (code=${exitCode}, signal=${signal})`;
-      this.terminal?.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       this.processHandle = null;
+      this.runningRuntime = null;
+      const nextRuntime = this.pendingStartRuntime;
+      this.pendingStartRuntime = null;
+      if (nextRuntime) {
+        void this.startClaudeProcess(nextRuntime);
+      }
     });
 
     this.fitAddon?.fit();
   }
 
-  stopClaudeProcess(): void {
+  stopClaudeProcess(preservePendingStart = false): void {
     if (!this.processHandle) {
       return;
     }
+    if (!preservePendingStart) {
+      this.pendingStartRuntime = null;
+    }
 
-    this.terminal?.writeln("[Stopping Claude process...]");
+    this.writeSystemLine(`[Stopping ${this.getRunningRuntimeLabel()} process...]`);
     this.setStatus("Stopping...");
     try {
       this.processHandle.kill("SIGTERM");
     } catch (error) {
       const message = `Failed to stop process: ${(error as Error).message}`;
-      this.terminal?.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 6000);
     }
@@ -220,18 +274,88 @@ class ClaudeCliView extends ItemView {
     this.statusEl?.setText(`Status: ${message}`);
   }
 
+  private getRuntimeLabel(runtime: CliRuntime = this.plugin.settings.runtime): string {
+    return runtime === "codex" ? "Codex" : "Claude";
+  }
+
+  private getRunningRuntimeLabel(): string {
+    if (!this.runningRuntime) {
+      return this.getRuntimeLabel();
+    }
+    return this.getRuntimeLabel(this.runningRuntime);
+  }
+
+  private getRuntimeCommand(runtime: CliRuntime = this.plugin.settings.runtime): string {
+    if (runtime === "codex") {
+      return this.plugin.settings.codexCommand.trim() || DEFAULT_SETTINGS.codexCommand;
+    }
+    return this.plugin.settings.command.trim();
+  }
+
+  private restartClaudeProcess(): void {
+    const targetRuntime = this.plugin.settings.runtime;
+    if (!this.processHandle) {
+      void this.startClaudeProcess(targetRuntime);
+      return;
+    }
+    this.pendingStartRuntime = targetRuntime;
+    this.writeSystemLine(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
+    this.stopClaudeProcess(true);
+  }
+
+  private resetTerminalDisplay(): void {
+    if (!this.terminal) {
+      return;
+    }
+
+    this.terminal.reset();
+    this.fitAddon?.fit();
+  }
+
+  private setRuntime(runtime: CliRuntime): void {
+    if (this.plugin.settings.runtime === runtime) {
+      return;
+    }
+
+    this.plugin.settings.runtime = runtime;
+    void this.plugin.saveSettings();
+    this.updateRuntimeButtons();
+
+    const selectedLabel = this.getRuntimeLabel();
+    this.writeSystemLine(`[Runtime selected: ${selectedLabel}]`);
+    if (this.processHandle) {
+      if (this.plugin.settings.autoRestartOnRuntimeSwitch) {
+        this.setStatus(`Restarting to ${selectedLabel}...`);
+        this.restartClaudeProcess();
+        return;
+      }
+      this.setStatus(`${selectedLabel} selected (restart to apply)`);
+      return;
+    }
+    this.setStatus(`${selectedLabel} selected`);
+  }
+
+  private updateRuntimeButtons(): void {
+    if (!this.runtimeButtons) {
+      return;
+    }
+
+    this.runtimeButtons.claude.toggleClass("is-active", this.plugin.settings.runtime === "claude");
+    this.runtimeButtons.codex.toggleClass("is-active", this.plugin.settings.runtime === "codex");
+  }
+
   private insertActiveFileMention(): void {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
       const message = "No active file detected.";
-      this.terminal?.writeln(`[${message}]`);
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 4000);
       return;
     }
     if (!this.processHandle) {
-      const message = "Claude process is not running. Start it before inserting a file mention.";
-      this.terminal?.writeln(`[${message}]`);
+      const message = `${this.getRuntimeLabel()} process is not running. Start it before inserting a file mention.`;
+      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 5000);
       return;
@@ -241,6 +365,22 @@ class ClaudeCliView extends ItemView {
     this.processHandle.write(mention);
     this.terminal?.focus();
     this.setStatus(`Inserted ${mention.trim()}`);
+  }
+
+  private writeSystemLine(message: string): void {
+    if (!this.terminal) {
+      return;
+    }
+    this.terminal.write("\r\u001b[2K");
+    this.terminal.writeln(message);
+  }
+
+  private setButtonIcon(buttonEl: HTMLButtonElement, iconName: string, label: string): void {
+    buttonEl.empty();
+    buttonEl.addClass("claude-cli-btn");
+    const iconEl = buttonEl.createSpan({ cls: "claude-cli-btn-icon" });
+    setIcon(iconEl, iconName);
+    buttonEl.createSpan({ text: label });
   }
 }
 
@@ -321,8 +461,47 @@ class ClaudeCliSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Codex command")
+      .setDesc("Command used to launch Codex in the embedded terminal.")
+      .addText((text) =>
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.codexCommand)
+          .setValue(this.plugin.settings.codexCommand)
+          .onChange(async (value) => {
+            this.plugin.settings.codexCommand = value.trim() || DEFAULT_SETTINGS.codexCommand;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Default runtime")
+      .setDesc("Runtime selected by default when opening the panel (and used by auto-start).")
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("claude", "Claude")
+          .addOption("codex", "Codex")
+          .setValue(this.plugin.settings.runtime)
+          .onChange(async (value) => {
+            this.plugin.settings.runtime = (value === "codex" ? "codex" : "claude") as CliRuntime;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Auto-restart on runtime switch")
+      .setDesc("Automatically restart the running process when switching Claude/Codex from the toolbar.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.autoRestartOnRuntimeSwitch)
+          .onChange(async (value) => {
+            this.plugin.settings.autoRestartOnRuntimeSwitch = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
       .setName("Auto-start")
-      .setDesc("Automatically start Claude when the panel opens.")
+      .setDesc("Automatically start the selected default runtime when the panel opens.")
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoStart)
@@ -484,6 +663,34 @@ function spawnPtyProxy(params: {
 }
 
 function makeProxyAdapter(handle: ChildProcess): ProcessAdapter {
+  const dataCallbacks: Array<(data: string) => void> = [];
+  const exitCallbacks: Array<(exitCode: number, signal: string) => void> = [];
+  const pendingData: string[] = [];
+  let pendingExit: { code: number; signal: string } | null = null;
+
+  const emitData = (chunk: Buffer | string) => {
+    const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+    if (dataCallbacks.length === 0) {
+      pendingData.push(text);
+      return;
+    }
+    dataCallbacks.forEach((callback) => callback(text));
+  };
+
+  const emitExit = (code: number | null, signal: NodeJS.Signals | null) => {
+    const exitCode = code ?? -1;
+    const exitSignal = signal ?? "none";
+    if (exitCallbacks.length === 0) {
+      pendingExit = { code: exitCode, signal: exitSignal };
+      return;
+    }
+    exitCallbacks.forEach((callback) => callback(exitCode, exitSignal));
+  };
+
+  handle.stdout?.on("data", emitData);
+  handle.stderr?.on("data", emitData);
+  handle.on("exit", emitExit);
+
   return {
     write(data: string) {
       if (handle.stdin?.writable) {
@@ -499,17 +706,17 @@ function makeProxyAdapter(handle: ChildProcess): ProcessAdapter {
       handle.kill(signal as NodeJS.Signals | number | undefined);
     },
     onData(callback: (data: string) => void) {
-      handle.stdout?.on("data", (chunk: Buffer | string) => {
-        callback(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
-      });
-      handle.stderr?.on("data", (chunk: Buffer | string) => {
-        callback(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
-      });
+      dataCallbacks.push(callback);
+      if (pendingData.length > 0) {
+        pendingData.splice(0, pendingData.length).forEach((chunk) => callback(chunk));
+      }
     },
     onExit(callback: (exitCode: number, signal: string) => void) {
-      handle.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
-        callback(code ?? -1, signal ?? "none");
-      });
+      exitCallbacks.push(callback);
+      if (pendingExit) {
+        callback(pendingExit.code, pendingExit.signal);
+        pendingExit = null;
+      }
     }
   };
 }
