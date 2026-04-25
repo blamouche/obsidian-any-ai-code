@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.23 - 2026-04-25
+- Added a `Release` GitHub Actions workflow triggered on tag pushes (`tags: ['*']`).
+- The workflow installs deps, runs the production build, verifies that the Obsidian plugin assets exist, and publishes a GitHub Release with `main.js`, `manifest.json`, and `styles.css` attached as standalone assets (matching Obsidian community plugin conventions).
+- Auto-generates release notes from the commit history (`generate_release_notes: true`).
+
 ## 0.1.22 - 2026-03-17
 - Translated the toolbar mention button label from `@Fichier actif` to `@Active file`.
 - Updated the corresponding button tooltip/accessible label to English for consistency.
