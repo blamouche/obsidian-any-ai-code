@@ -61,15 +61,26 @@ jobs:
           body: |
             ## Install
 
-            **Easy install** — download `${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip`, unzip it into your vault's `.obsidian/plugins/` folder, then inside the extracted `${{ env.PLUGIN_ID }}/` folder run:
+            1. Download `${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip` below.
+            2. Unzip it inside your vault's plugin folder so the resulting path is `/PATH/TO/VAULT/.obsidian/plugins/${{ env.PLUGIN_ID }}/`.
+            3. Enable the plugin in Obsidian → Settings → Community plugins.
+
+            No commands required. The plugin uses an embedded Python PTY bridge fallback so it works out of the box on macOS / Linux, and falls back to direct pipe mode on Windows.
+
+            ### Optional — native PTY backend
+
+            For best terminal fidelity (full-screen TUI rendering, resize), install the native `node-pty` module after unzipping:
 
             ```bash
+            cd "/PATH/TO/VAULT/.obsidian/plugins/${{ env.PLUGIN_ID }}"
             npm install --omit=dev
             ```
 
-            This installs the native `node-pty` dependency for your platform. Then enable the plugin in Obsidian → Settings → Community plugins.
+            Then reload the plugin.
 
-            **Manual install / Obsidian auto-update** — `main.js`, `manifest.json`, and `styles.css` are also attached as standalone files for compatibility with Obsidian's plugin update protocol and tools like BRAT.
+            ### Manual install / Obsidian auto-update
+
+            `main.js`, `manifest.json`, and `styles.css` are also attached as standalone files for compatibility with Obsidian's plugin update protocol and tools like BRAT.
           files: |
             ${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip
             main.js

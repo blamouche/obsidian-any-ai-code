@@ -25,21 +25,40 @@ Use Claude Code directly inside your active Obsidian vault without leaving Obsid
 
 ## Install in a Vault
 
-1. Create the plugin folder:
+### Recommended — from a GitHub release
+
+1. Open the [latest release](https://github.com/blamouche/obsidian-any-ai-code/releases/latest).
+2. Download `obsidian-any-ai-code-<version>.zip`.
+3. Unzip it directly inside your vault's plugin folder so the resulting path is:
+
+   ```
+   /PATH/TO/VAULT/.obsidian/plugins/obsidian-any-ai-code/
+   ```
+
+4. In Obsidian, enable the plugin: `Settings → Community plugins → Installed plugins → Any AI Code`.
+
+That's it. No commands required — the plugin uses an embedded Python PTY bridge fallback so it works out of the box on macOS / Linux (and falls back to direct pipe mode on Windows).
+
+### Optional — install the native PTY backend for best terminal fidelity
+
+The bundle ships without `node-pty` (a native module that has to be compiled for your specific Node ABI). The plugin works without it, but installing it gives you a fully native PTY (better full-screen TUI rendering and resize behavior). To enable it:
 
 ```bash
-mkdir -p "/PATH/TO/VAULT/.obsidian/plugins/obsidian-any-ai-code"
-```
-
-2. Copy the repository content into this folder (or use a symlink).
-
-3. In that plugin folder, install runtime dependencies:
-
-```bash
+cd "/PATH/TO/VAULT/.obsidian/plugins/obsidian-any-ai-code"
 npm install --omit=dev
 ```
 
-4. Verify at least these files exist:
+Reload the plugin afterwards.
+
+### Manual install / dev clone
+
+1. Clone or copy the repository into `/PATH/TO/VAULT/.obsidian/plugins/obsidian-any-ai-code/`.
+2. Run `npm install` and `npm run build` inside the folder to produce `main.js`.
+3. Enable the plugin in `Settings → Community plugins`.
+
+### Required files
+
+If you assemble the plugin folder by hand, make sure these are present:
 
 - `manifest.json`
 - `main.js`
@@ -47,11 +66,7 @@ npm install --omit=dev
 - `versions.json`
 - `pty-proxy.js`
 - `pty-bridge.py`
-- `node_modules/node-pty/...`
-
-5. Enable the plugin in Obsidian:
-
-- `Settings -> Community plugins`
+- `package.json` and `package-lock.json` (only needed if you plan to install `node-pty`)
 
 ## Usage
 
@@ -91,7 +106,7 @@ Claude binary is not in Obsidian process `PATH`.
 
 ### `Cannot find module 'node-pty'`
 
-`node-pty` is not installed in the active vault plugin folder.
+Since 0.1.25, this no longer crashes the plugin — `node-pty` is optional and the proxy automatically falls back to the Python bridge (or direct pipe). If you want the native PTY backend anyway:
 
 ```bash
 cd "/PATH/TO/VAULT/.obsidian/plugins/obsidian-any-ai-code"
@@ -144,6 +159,27 @@ Steps:
 1. `npm ci`
 2. `npm run test`
 3. `npm run build`
+
+## Release
+
+GitHub Actions workflow: `.github/workflows/release.yml`
+
+Triggered by pushing a git tag (e.g. `0.1.25`):
+
+```bash
+git tag 0.1.25
+git push origin 0.1.25
+```
+
+The workflow:
+
+1. Checks out the repo and runs `npm ci` + `npm run build`.
+2. Stages every runtime-required file (`manifest.json`, `main.js`, `styles.css`, `versions.json`, `pty-proxy.js`, `pty-bridge.py`, `package.json`, `package-lock.json`) into an `obsidian-any-ai-code/` folder.
+3. Zips it as `obsidian-any-ai-code-<tag>.zip` for one-click install.
+4. Publishes a GitHub Release attaching the zip plus standalone `main.js` / `manifest.json` / `styles.css` (for Obsidian's plugin update protocol and BRAT).
+5. Auto-generates release notes from the commit history.
+
+Before tagging, keep these versions in sync: `manifest.json`, `versions.json`, `package.json`.
 
 ## Main Files
 

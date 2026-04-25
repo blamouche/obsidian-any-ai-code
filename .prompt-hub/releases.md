@@ -1,5 +1,11 @@
 # Releases
 
+## 0.1.26 - 2026-04-25
+- Reworked the README `Install in a Vault` section around the GitHub release zip flow (download zip → unzip into `.obsidian/plugins/` → enable), with the native `node-pty` install demoted to an optional step for best terminal fidelity.
+- Updated the release workflow body template to drop the mandatory `npm install --omit=dev` step (no longer required since 0.1.25 made the native dep optional) and reframed it as an optional enhancement.
+- Added a `Release` section to the README documenting how the release workflow runs and which files it ships.
+- Updated the `Cannot find module 'node-pty'` troubleshooting note to reflect that this no longer crashes the plugin.
+
 ## 0.1.25 - 2026-04-25
 - Fixed `Cannot find module 'node-pty'` crash on plugin start when the native dep is missing (e.g. user did not run `npm install --omit=dev` after unzipping the release).
 - Made the `node-pty` import optional in `pty-proxy.js`: if loading fails, the proxy now falls through cleanly to the existing Python bridge / direct pipe / `script` fallback chain instead of dying at top-level `require`.
