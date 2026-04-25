@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.24 - 2026-04-25
+- Updated the Release workflow to bundle every runtime file required by the plugin (`manifest.json`, `main.js`, `styles.css`, `versions.json`, `pty-proxy.js`, `pty-bridge.py`, `package.json`, `package-lock.json`) into a single zip asset (`obsidian-any-ai-code-<tag>.zip`) for one-click install.
+- Added install instructions to the auto-generated release body explaining how to drop the unzipped folder into `.obsidian/plugins/` and install native deps via `npm install --omit=dev`.
+- Kept `main.js`, `manifest.json`, and `styles.css` as standalone release assets for Obsidian's plugin update protocol / BRAT compatibility.
+
 ## 0.1.23 - 2026-04-25
 - Added a `Release` GitHub Actions workflow triggered on tag pushes (`tags: ['*']`).
 - The workflow installs deps, runs the production build, verifies that the Obsidian plugin assets exist, and publishes a GitHub Release with `main.js`, `manifest.json`, and `styles.css` attached as standalone assets (matching Obsidian community plugin conventions).

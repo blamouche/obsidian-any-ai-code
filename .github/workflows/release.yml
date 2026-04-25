@@ -11,6 +11,8 @@ permissions:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    env:
+      PLUGIN_ID: obsidian-any-ai-code
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,15 +29,27 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Verify Obsidian plugin assets
+      - name: Stage plugin bundle
         run: |
           set -e
-          for f in main.js manifest.json styles.css; do
+          STAGE_DIR="dist/${PLUGIN_ID}"
+          mkdir -p "${STAGE_DIR}"
+          # Files required at runtime by the plugin (see README "Install in a Vault").
+          # node-pty is a native module: ship package.json + package-lock.json so
+          # the user installs it for their own platform via `npm install --omit=dev`.
+          for f in manifest.json main.js styles.css versions.json pty-proxy.js pty-bridge.py package.json package-lock.json; do
             if [ ! -f "$f" ]; then
-              echo "Missing required Obsidian plugin asset: $f"
+              echo "Missing required plugin file: $f"
               exit 1
             fi
+            cp "$f" "${STAGE_DIR}/"
           done
+
+      - name: Create plugin zip
+        run: |
+          set -e
+          cd dist
+          zip -r "../${PLUGIN_ID}-${GITHUB_REF_NAME}.zip" "${PLUGIN_ID}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -44,7 +58,20 @@ jobs:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
+          body: |
+            ## Install
+
+            **Easy install** — download `${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip`, unzip it into your vault's `.obsidian/plugins/` folder, then inside the extracted `${{ env.PLUGIN_ID }}/` folder run:
+
+            ```bash
+            npm install --omit=dev
+            ```
+
+            This installs the native `node-pty` dependency for your platform. Then enable the plugin in Obsidian → Settings → Community plugins.
+
+            **Manual install / Obsidian auto-update** — `main.js`, `manifest.json`, and `styles.css` are also attached as standalone files for compatibility with Obsidian's plugin update protocol and tools like BRAT.
           files: |
+            ${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip
             main.js
             manifest.json
             styles.css
