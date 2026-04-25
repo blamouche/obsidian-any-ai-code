@@ -1,7 +1,7 @@
 {
   "id": "obsidian-any-ai-code",
   "name": "Any AI Code",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "minAppVersion": "1.5.0",
   "description": "Open Claude Code CLI in a right sidebar view.",
   "author": "",
