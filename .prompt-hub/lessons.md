@@ -11,3 +11,4 @@
 - Python PTY bridge must set terminal size explicitly (`TIOCSWINSZ`) using requested cols/rows; otherwise interactive TUI output can degrade into letter-per-line rendering.
 - Before writing plugin system notices in terminal, clear the current line (`\\r` + `ESC[2K`) to avoid appending logs onto an active TUI status line.
 - Après une correction utilisateur, ne pas conclure "déjà fait" sans revalider explicitement le contexte demandé (branche active, état attendu dans l’UI, et consigne exacte) et proposer l’action corrective immédiate.
+- When a plugin advertises a multi-step fallback chain (PTY → python bridge → pipe → script), the entry-point `require()` of any optional native dep MUST be wrapped in try/catch; otherwise a missing dep crashes the process at load time and the fallback chain never gets a chance to run.

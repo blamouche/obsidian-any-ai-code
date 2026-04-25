@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.25 - 2026-04-25
+- Fixed `Cannot find module 'node-pty'` crash on plugin start when the native dep is missing (e.g. user did not run `npm install --omit=dev` after unzipping the release).
+- Made the `node-pty` import optional in `pty-proxy.js`: if loading fails, the proxy now falls through cleanly to the existing Python bridge / direct pipe / `script` fallback chain instead of dying at top-level `require`.
+
 ## 0.1.24 - 2026-04-25
 - Updated the Release workflow to bundle every runtime file required by the plugin (`manifest.json`, `main.js`, `styles.css`, `versions.json`, `pty-proxy.js`, `pty-bridge.py`, `package.json`, `package-lock.json`) into a single zip asset (`obsidian-any-ai-code-<tag>.zip`) for one-click install.
 - Added install instructions to the auto-generated release body explaining how to drop the unzipped folder into `.obsidian/plugins/` and install native deps via `npm install --omit=dev`.

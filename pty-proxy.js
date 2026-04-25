@@ -1,4 +1,10 @@
-const pty = require("node-pty");
+let pty = null;
+let ptyLoadError = null;
+try {
+  pty = require("node-pty");
+} catch (error) {
+  ptyLoadError = error;
+}
 const { spawn } = require("child_process");
 const fs = require("fs");
 
@@ -36,6 +42,10 @@ function getLaunchSpecs(command) {
 }
 
 function spawnWithFallback(launches, options) {
+  if (!pty) {
+    const reason = ptyLoadError ? ptyLoadError.message : "node-pty not loaded";
+    throw new Error(`node-pty unavailable: ${reason}`);
+  }
   const failures = [];
   for (const launch of launches) {
     try {
