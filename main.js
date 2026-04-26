@@ -3,9 +3,11 @@ if(typeof global === 'undefined'){var global = window;}
 if(typeof Buffer === 'undefined'){var Buffer = require('buffer').Buffer;}
 if(typeof process === 'undefined'){var process = require('process');}
 
+var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -19,6 +21,14 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // main.ts
@@ -28,6 +38,10 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
+var import_child_process = require("child_process");
+var fs2 = __toESM(require("fs"));
+var os2 = __toESM(require("os"));
+var path = __toESM(require("path"));
 
 // node_modules/@xterm/xterm/lib/xterm.mjs
 var zs = Object.defineProperty;
@@ -9385,7 +9399,7 @@ function mergePathEntries(currentPath, extras, platform) {
   }
   return existing.join(delimiter);
 }
-function resolveExecutableInPath(executable, pathValue, platform, existsSync, pathApi) {
+function resolveExecutableInPath(executable, pathValue, platform, existsSync2, pathApi) {
   if (!pathValue) {
     return void 0;
   }
@@ -9394,18 +9408,18 @@ function resolveExecutableInPath(executable, pathValue, platform, existsSync, pa
   const fileName = platform === "win32" ? `${executable}.exe` : executable;
   for (const dir of candidates) {
     const fullPath = pathApi.join(dir, fileName);
-    if (existsSync(fullPath)) {
+    if (existsSync2(fullPath)) {
       return fullPath;
     }
   }
   return void 0;
 }
-function detectNodeExecutable(configuredValue, platform, env, existsSync, pathApi) {
+function detectNodeExecutable(configuredValue, platform, env, existsSync2, pathApi) {
   const configured = configuredValue == null ? void 0 : configuredValue.trim();
   if (configured && configured.toLowerCase() !== "auto") {
     return configured;
   }
-  const fromPath = resolveExecutableInPath("node", env.PATH, platform, existsSync, pathApi);
+  const fromPath = resolveExecutableInPath("node", env.PATH, platform, existsSync2, pathApi);
   if (fromPath) {
     return fromPath;
   }
@@ -9421,7 +9435,7 @@ function detectNodeExecutable(configuredValue, platform, env, existsSync, pathAp
     home ? pathApi.join(home, ".nvm", "current", "bin", "node") : ""
   ];
   for (const candidate of defaults) {
-    if (candidate && existsSync(candidate)) {
+    if (candidate && existsSync2(candidate)) {
       return candidate;
     }
   }
@@ -9463,12 +9477,12 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     return VIEW_TYPE_CLAUDE;
   }
   getDisplayText() {
-    return "CLI AI Assistant";
+    return "Any AI CLI";
   }
   getIcon() {
     return "bot";
   }
-  async onOpen() {
+  onOpen() {
     this.contentEl.empty();
     this.contentEl.addClass("claude-cli-view");
     const toolbarEl = this.contentEl.createDiv({ cls: "claude-cli-toolbar" });
@@ -9547,11 +9561,12 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     });
     this.resizeObserver.observe(this.contentEl);
     if (this.plugin.settings.autoStart) {
-      await this.startClaudeProcess();
+      this.startClaudeProcess();
     } else {
-      this.writeSystemLine(`Auto-start is disabled. Click Start to launch ${this.getRuntimeLabel()}.`);
+      this.writeSystemLine(`Auto-start is disabled. Click start to launch ${this.getRuntimeLabel()}.`);
       this.setStatus("Idle");
     }
+    return Promise.resolve();
   }
   refreshRuntimeSelect() {
     if (!this.runtimeSelect) {
@@ -9574,7 +9589,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
     this.runtimeSelect.value = validSelection ? this.plugin.settings.selectedRuntimeId : runtimes[0].id;
   }
-  async onClose() {
+  onClose() {
     var _a5, _b;
     this.stopClaudeProcess();
     (_a5 = this.resizeObserver) == null ? void 0 : _a5.disconnect();
@@ -9583,8 +9598,9 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.terminal = null;
     this.fitAddon = null;
     this.statusEl = null;
+    return Promise.resolve();
   }
-  async startClaudeProcess(runtimeIdOverride) {
+  startClaudeProcess(runtimeIdOverride) {
     var _a5;
     if (!this.terminal) {
       return;
@@ -9632,7 +9648,6 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
         new import_obsidian.Notice(message, 6e3);
         return;
       }
-      const fs2 = require("fs");
       if (!fs2.existsSync(vaultPath)) {
         const message = `Vault path does not exist: ${vaultPath}`;
         this.writeSystemLine(`[${message}]`);
@@ -9840,25 +9855,29 @@ var ClaudeCliPlugin = class extends import_obsidian.Plugin {
   async onload() {
     await this.loadSettings();
     this.registerView(VIEW_TYPE_CLAUDE, (leaf) => new ClaudeCliView(leaf, this));
-    this.addRibbonIcon("bot", "Open CLI AI Assistant", async () => {
-      await this.activateView();
+    this.addRibbonIcon("bot", "Open Any AI CLI", () => {
+      void this.activateView();
     });
     this.addCommand({
-      id: "open-claude-code-panel",
-      name: "Open CLI AI Assistant",
-      callback: async () => {
-        await this.activateView();
+      id: "open-panel",
+      name: "Open Any AI CLI",
+      callback: () => {
+        void this.activateView();
       }
     });
     this.addSettingTab(new ClaudeCliSettingTab(this.app, this));
   }
-  async onunload() {
+  onunload() {
   }
   async activateView() {
+    var _a5;
     const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0];
+    let leaf = (_a5 = workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0]) != null ? _a5 : null;
     if (!leaf) {
       leaf = workspace.getRightLeaf(false);
+      if (!leaf) {
+        return;
+      }
       await leaf.setViewState({
         type: VIEW_TYPE_CLAUDE,
         active: true
@@ -9997,8 +10016,8 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
     );
   }
 };
-function resolvePluginDir2(pluginDir, vaultBasePath, path) {
-  return resolvePluginDir(pluginDir, vaultBasePath, path);
+function resolvePluginDir2(pluginDir, vaultBasePath, path2) {
+  return resolvePluginDir(pluginDir, vaultBasePath, path2);
 }
 function getVaultBasePath(app) {
   const adapter = app.vault.adapter;
@@ -10008,9 +10027,6 @@ function getVaultBasePath(app) {
   return void 0;
 }
 function getShellEnv() {
-  const path = require("path");
-  const os2 = require("os");
-  const fs2 = require("fs");
   const home = os2.homedir();
   const env = {
     ...process.env,
@@ -10072,12 +10088,9 @@ function mergePathEntries2(currentPath, extras) {
   return mergePathEntries(currentPath, extras, process.platform);
 }
 function spawnPtyProxy(params) {
-  const { spawn } = require("child_process");
-  const path = require("path");
   const resolvedPluginDir = resolvePluginDir2(params.pluginDir, params.vaultPath, path);
   const scriptPath = resolvedPluginDir ? path.join(resolvedPluginDir, "pty-proxy.js") : path.resolve("pty-proxy.js");
-  const fsApi = require("fs");
-  if (!fsApi.existsSync(scriptPath)) {
+  if (!fs2.existsSync(scriptPath)) {
     throw new Error(`Missing proxy script: ${scriptPath}`);
   }
   const payload = Buffer.from(
@@ -10090,16 +10103,14 @@ function spawnPtyProxy(params) {
     }),
     "utf8"
   ).toString("base64");
-  const fs2 = require("fs");
-  const nodePath = require("path");
   const nodeExecutable = detectNodeExecutable(
     params.nodeExecutable,
     process.platform,
     params.env,
     fs2.existsSync,
-    nodePath
+    path
   );
-  return spawn(nodeExecutable, [scriptPath, payload], {
+  return (0, import_child_process.spawn)(nodeExecutable, [scriptPath, payload], {
     cwd: params.cwd,
     env: params.env,
     stdio: ["pipe", "pipe", "pipe", "ipc"]

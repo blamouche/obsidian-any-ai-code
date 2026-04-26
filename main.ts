@@ -1,5 +1,8 @@
 import { App, FileSystemAdapter, ItemView, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, setIcon } from "obsidian";
-import type { ChildProcess } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import {
@@ -74,14 +77,14 @@ class ClaudeCliView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "CLI AI Assistant";
+    return "Any AI CLI";
   }
 
   getIcon(): string {
     return "bot";
   }
 
-  async onOpen(): Promise<void> {
+  onOpen(): Promise<void> {
     this.contentEl.empty();
     this.contentEl.addClass("claude-cli-view");
 
@@ -165,11 +168,13 @@ class ClaudeCliView extends ItemView {
     this.resizeObserver.observe(this.contentEl);
 
     if (this.plugin.settings.autoStart) {
-      await this.startClaudeProcess();
+      this.startClaudeProcess();
     } else {
-      this.writeSystemLine(`Auto-start is disabled. Click Start to launch ${this.getRuntimeLabel()}.`);
+      this.writeSystemLine(`Auto-start is disabled. Click start to launch ${this.getRuntimeLabel()}.`);
       this.setStatus("Idle");
     }
+
+    return Promise.resolve();
   }
 
   refreshRuntimeSelect(): void {
@@ -196,7 +201,7 @@ class ClaudeCliView extends ItemView {
       : runtimes[0].id;
   }
 
-  async onClose(): Promise<void> {
+  onClose(): Promise<void> {
     this.stopClaudeProcess();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
@@ -204,9 +209,10 @@ class ClaudeCliView extends ItemView {
     this.terminal = null;
     this.fitAddon = null;
     this.statusEl = null;
+    return Promise.resolve();
   }
 
-  async startClaudeProcess(runtimeIdOverride?: string): Promise<void> {
+  startClaudeProcess(runtimeIdOverride?: string): void {
     if (!this.terminal) {
       return;
     }
@@ -261,7 +267,6 @@ class ClaudeCliView extends ItemView {
         new Notice(message, 6000);
         return;
       }
-      const fs = require("fs") as typeof import("fs");
       if (!fs.existsSync(vaultPath)) {
         const message = `Vault path does not exist: ${vaultPath}`;
         this.writeSystemLine(`[${message}]`);
@@ -495,32 +500,35 @@ export default class ClaudeCliPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE_CLAUDE, (leaf) => new ClaudeCliView(leaf, this));
 
-    this.addRibbonIcon("bot", "Open CLI AI Assistant", async () => {
-      await this.activateView();
+    this.addRibbonIcon("bot", "Open Any AI CLI", () => {
+      void this.activateView();
     });
 
     this.addCommand({
-      id: "open-claude-code-panel",
-      name: "Open CLI AI Assistant",
-      callback: async () => {
-        await this.activateView();
+      id: "open-panel",
+      name: "Open Any AI CLI",
+      callback: () => {
+        void this.activateView();
       }
     });
 
     this.addSettingTab(new ClaudeCliSettingTab(this.app, this));
   }
 
-  async onunload(): Promise<void> {
+  onunload(): void {
     // Per Obsidian plugin guidelines, do not detach leaves on unload —
     // Obsidian preserves leaf state across reloads/updates.
   }
 
   async activateView(): Promise<void> {
     const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0];
+    let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0] ?? null;
 
     if (!leaf) {
       leaf = workspace.getRightLeaf(false);
+      if (!leaf) {
+        return;
+      }
       await leaf.setViewState({
         type: VIEW_TYPE_CLAUDE,
         active: true
@@ -735,9 +743,6 @@ function getVaultBasePath(app: App): string | undefined {
 }
 
 function getShellEnv(): NodeJS.ProcessEnv {
-  const path = require("path") as typeof import("path");
-  const os = require("os") as typeof import("os");
-  const fs = require("fs") as typeof import("fs");
   const home = os.homedir();
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -815,15 +820,12 @@ function spawnPtyProxy(params: {
   pluginDir?: string;
   vaultPath?: string;
 }): ChildProcess {
-  const { spawn } = require("child_process") as typeof import("child_process");
-  const path = require("path") as typeof import("path");
   const resolvedPluginDir = resolvePluginDir(params.pluginDir, params.vaultPath, path);
   const scriptPath = resolvedPluginDir
     ? path.join(resolvedPluginDir, "pty-proxy.js")
     : path.resolve("pty-proxy.js");
-  const fsApi = require("fs") as typeof import("fs");
 
-  if (!fsApi.existsSync(scriptPath)) {
+  if (!fs.existsSync(scriptPath)) {
     throw new Error(`Missing proxy script: ${scriptPath}`);
   }
 
@@ -838,14 +840,12 @@ function spawnPtyProxy(params: {
     "utf8"
   ).toString("base64");
 
-  const fs = require("fs") as typeof import("fs");
-  const nodePath = require("path") as typeof import("path");
   const nodeExecutable = detectNodeExecutable(
     params.nodeExecutable,
     process.platform,
     params.env,
     fs.existsSync,
-    nodePath
+    path
   );
   return spawn(nodeExecutable, [scriptPath, payload], {
     cwd: params.cwd,

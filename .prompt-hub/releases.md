@@ -1,5 +1,14 @@
 # Releases
 
+## 0.1.37 - 2026-04-26
+- Addressed every issue raised by the Obsidian community-store automated scan:
+  - Replaced all `require()` calls in `main.ts` with top-level ES imports for `child_process`, `fs`, `os`, `path` (`@typescript-eslint/no-require-imports`).
+  - Removed unnecessary `async` keyword on `onOpen`, `onClose`, `onunload`, and `startClaudeProcess` — these methods had no `await` body, and `onunload` is typed as `void` on `Plugin`. Now they return synchronously (or `Promise.resolve()` where the parent type requires `Promise<void>`).
+  - Voided unhandled promises in the ribbon icon and command callbacks (`void this.activateView()` instead of nesting an async arrow that returned `Promise<void>`).
+  - Renamed UI labels to sentence case: view display text and command/ribbon labels switched from `CLI AI Assistant` to `Any AI CLI` (the manifest plugin name; only acronyms remain uppercase).
+  - Removed the `obsidian-` prefix on the command id (`open-claude-code-panel` → `open-panel`); Obsidian auto-prefixes command ids with the plugin id.
+  - Tightened `activateView` so it gracefully bails out when `workspace.getRightLeaf(false)` returns `null` (also clears the only remaining strict-mode TS error).
+
 ## 0.1.36 - 2026-04-26
 - Renamed plugin id from `obsidian-any-ai-cli` to `any-ai-cli` after the Obsidian community submission bot rejected the previous id (the official guideline asks plugins not to include `obsidian` in their id since the id is used as the plugin folder name and brevity helps sorting). The id `any-ai-cli` is verified free in the public `community-plugins.json`.
 - Updated all id-referencing files: `manifest.json`, `package.json`, `package-lock.json`, `.github/workflows/release.yml` (`PLUGIN_ID`), and the README install paths and zip filename mentions.
