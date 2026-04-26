@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 export interface LaunchSpec {
   file: string;
   args: string[];
@@ -117,11 +119,7 @@ function sanitizeRuntimes(
 }
 
 export function defaultGenerateRuntimeId(): string {
-  const cryptoApi = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (cryptoApi && typeof cryptoApi.randomUUID === "function") {
-    return cryptoApi.randomUUID();
-  }
-  return `runtime-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return randomUUID();
 }
 
 export function resolvePluginDir(

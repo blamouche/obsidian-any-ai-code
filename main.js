@@ -9300,6 +9300,7 @@ var o = class {
 };
 
 // runtime-utils.ts
+var import_node_crypto = require("node:crypto");
 function formatActiveFileMention(fileName) {
   return `@${fileName.trim()} `;
 }
@@ -9368,11 +9369,7 @@ function sanitizeRuntimes(raw, generateId) {
   return result;
 }
 function defaultGenerateRuntimeId() {
-  const cryptoApi = globalThis.crypto;
-  if (cryptoApi && typeof cryptoApi.randomUUID === "function") {
-    return cryptoApi.randomUUID();
-  }
-  return `runtime-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return (0, import_node_crypto.randomUUID)();
 }
 function resolvePluginDir(pluginDir, vaultBasePath, pathApi) {
   if (!pluginDir) {
@@ -9506,10 +9503,10 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     startBtn.addClass("claude-cli-btn-primary");
     stopBtn.addClass("claude-cli-btn-danger");
     const secondaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
-    const mentionBtn = secondaryRowEl.createEl("button", { text: "@Active file" });
-    const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@Active folder" });
-    this.setButtonIcon(mentionBtn, "file-plus", "@Active file");
-    this.setButtonIcon(folderMentionBtn, "folder-plus", "@Active folder");
+    const mentionBtn = secondaryRowEl.createEl("button", { text: "@active file" });
+    const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@active folder" });
+    this.setButtonIcon(mentionBtn, "file-plus", "@active file");
+    this.setButtonIcon(folderMentionBtn, "folder-plus", "@active folder");
     mentionBtn.addClass("claude-cli-btn-info");
     folderMentionBtn.addClass("claude-cli-btn-info");
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
@@ -9575,7 +9572,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.runtimeSelect.empty();
     const runtimes = this.plugin.settings.runtimes;
     if (runtimes.length === 0) {
-      const placeholder = this.runtimeSelect.createEl("option", { text: "(no runtime configured)" });
+      const placeholder = this.runtimeSelect.createEl("option", { text: "(No runtime configured)" });
       placeholder.value = "";
       this.runtimeSelect.value = "";
       this.runtimeSelect.disabled = true;
@@ -9855,12 +9852,12 @@ var ClaudeCliPlugin = class extends import_obsidian.Plugin {
   async onload() {
     await this.loadSettings();
     this.registerView(VIEW_TYPE_CLAUDE, (leaf) => new ClaudeCliView(leaf, this));
-    this.addRibbonIcon("bot", "Open Any AI CLI", () => {
+    this.addRibbonIcon("bot", "Open AI CLI panel", () => {
       void this.activateView();
     });
     this.addCommand({
       id: "open-panel",
-      name: "Open Any AI CLI",
+      name: "Open panel",
       callback: () => {
         void this.activateView();
       }
@@ -9883,7 +9880,7 @@ var ClaudeCliPlugin = class extends import_obsidian.Plugin {
         active: true
       });
     }
-    workspace.revealLeaf(leaf);
+    await workspace.revealLeaf(leaf);
   }
   async loadSettings() {
     var _a5;
@@ -9920,7 +9917,7 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("Default runtime").setDesc("Runtime selected by default when opening the panel (and used by auto-start).").addDropdown((dropdown) => {
       const runtimes = this.plugin.settings.runtimes;
       if (runtimes.length === 0) {
-        dropdown.addOption("", "(no runtime configured)");
+        dropdown.addOption("", "(No runtime configured)");
         dropdown.setDisabled(true);
       } else {
         for (const runtime of runtimes) {
@@ -9954,13 +9951,13 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
     );
     new import_obsidian.Setting(containerEl).setName("Runtimes").setHeading();
     containerEl.createEl("p", {
-      text: "Configure the CLIs that show up in the sidebar dropdown. Each entry needs a display name and a launch command. Add as many as you want.",
+      text: "Configure the runtimes that show up in the sidebar dropdown. Each entry needs a display name and a launch command. Add as many as you want.",
       cls: "setting-item-description"
     });
     const runtimesListEl = containerEl.createDiv({ cls: "claude-cli-runtimes-list" });
     if (this.plugin.settings.runtimes.length === 0) {
       runtimesListEl.createEl("p", {
-        text: "No runtimes configured yet. Click 'Add runtime' to create one.",
+        text: "No runtimes configured yet. Use the button below to create one.",
         cls: "setting-item-description"
       });
     }
@@ -9974,7 +9971,7 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
           this.plugin.notifyRuntimesChanged();
         })
       ).addText((text) => {
-        text.setPlaceholder("Command (e.g. claude, codex --no-alt-screen ...)").setValue(runtime.command).onChange(async (value) => {
+        text.setPlaceholder("Launch command").setValue(runtime.command).onChange(async (value) => {
           this.plugin.settings.runtimes[index].command = value;
           await this.plugin.saveSettings();
         });
@@ -10008,8 +10005,8 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
       })
     );
     new import_obsidian.Setting(containerEl).setName("Advanced").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Node executable").setDesc("Optional override for PTY proxy Node runtime. Leave as 'auto' for automatic detection.").addText(
-      (text) => text.setPlaceholder("auto").setValue(this.plugin.settings.nodeExecutable).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Node executable").setDesc("Path to the node binary used by the proxy. Leave as 'auto' for automatic detection.").addText(
+      (text) => text.setPlaceholder("Auto").setValue(this.plugin.settings.nodeExecutable).onChange(async (value) => {
         this.plugin.settings.nodeExecutable = value.trim() || "auto";
         await this.plugin.saveSettings();
       })

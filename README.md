@@ -142,12 +142,14 @@ Native PTY failed in the current runtime environment.
 
 ```bash
 npm install
+npm run lint
 npm run test
 npm run build
 ```
 
 - `npm run dev`: esbuild watch mode
 - `npm run build`: compile `main.ts` -> `main.js`
+- `npm run lint`: run [eslint-plugin-obsidianmd](https://github.com/obsidianmd/eslint-plugin) so violations of the Obsidian community-store guidelines are caught locally before submission
 
 ## Test Stack
 
@@ -169,8 +171,9 @@ Triggers:
 Steps:
 
 1. `npm ci`
-2. `npm run test`
-3. `npm run build`
+2. `npm run lint`
+3. `npm run test`
+4. `npm run build`
 
 ## Release
 

@@ -1,11 +1,12 @@
 {
   "name": "any-ai-cli",
-  "version": "0.1.37",
+  "version": "0.1.38",
   "description": "Open your local Claude Code CLI inside an Obsidian right sidebar view",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
+    "lint": "eslint main.ts runtime-utils.ts \"tests/**/*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -19,8 +20,11 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.17.30",
+    "@typescript-eslint/parser": "^8.59.0",
     "builtin-modules": "^5.0.0",
     "esbuild": "^0.25.3",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.2.4",
     "obsidian": "latest",
     "tslib": "^2.8.1",
     "typescript": "^5.8.3",

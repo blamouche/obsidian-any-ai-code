@@ -1,5 +1,15 @@
 # Releases
 
+## 0.1.38 - 2026-04-26
+- Installed [eslint-plugin-obsidianmd](https://github.com/obsidianmd/eslint-plugin) (`eslint`, `@typescript-eslint/parser`, `eslint-plugin-obsidianmd`) and added an `eslint.config.mjs` flat config that wires the plugin's `recommended` ruleset to project TS files, with an override turning off `obsidianmd/hardcoded-config-path` for the `tests/` fixtures.
+- Added an `npm run lint` script (scoped to `main.ts`, `runtime-utils.ts`, and `tests/**/*.ts`) and wired it into the CI workflow before `npm run test` so guideline violations are caught on every push/PR.
+- Fixed every issue surfaced by the local lint run, mapping 1:1 onto the Obsidian automated review:
+  - Sentence case: `@Active file`/`@Active folder` → `@active file`/`@active folder`; `(no runtime configured)` → `(No runtime configured)`; ribbon tooltip `Open Any AI CLI` → `Open AI CLI panel`; placeholder `auto` → `Auto`; rephrased descriptions to avoid mid-sentence acronym capitalization (`PTY`, `CLIs`, `Node`).
+  - Command palette name no longer includes the plugin name: `Open Any AI CLI` → `Open panel`.
+  - Replaced the `globalThis.crypto` UUID fallback in `runtime-utils.ts` with `import { randomUUID } from "node:crypto"`.
+  - Awaited the `Workspace.revealLeaf` call (now returns a Promise) and bumped `manifest.json` `minAppVersion` to `1.7.2` (the version that introduced `revealLeaf`).
+  - Versions.json maps `0.1.38` to `1.7.2`; older mapped versions stay at `1.5.0` so existing downloads keep resolving as before.
+
 ## 0.1.37 - 2026-04-26
 - Addressed every issue raised by the Obsidian community-store automated scan:
   - Replaced all `require()` calls in `main.ts` with top-level ES imports for `child_process`, `fs`, `os`, `path` (`@typescript-eslint/no-require-imports`).

@@ -111,10 +111,10 @@ class ClaudeCliView extends ItemView {
     stopBtn.addClass("claude-cli-btn-danger");
 
     const secondaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
-    const mentionBtn = secondaryRowEl.createEl("button", { text: "@Active file" });
-    const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@Active folder" });
-    this.setButtonIcon(mentionBtn, "file-plus", "@Active file");
-    this.setButtonIcon(folderMentionBtn, "folder-plus", "@Active folder");
+    const mentionBtn = secondaryRowEl.createEl("button", { text: "@active file" });
+    const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@active folder" });
+    this.setButtonIcon(mentionBtn, "file-plus", "@active file");
+    this.setButtonIcon(folderMentionBtn, "folder-plus", "@active folder");
     mentionBtn.addClass("claude-cli-btn-info");
     folderMentionBtn.addClass("claude-cli-btn-info");
 
@@ -184,7 +184,7 @@ class ClaudeCliView extends ItemView {
     this.runtimeSelect.empty();
     const runtimes = this.plugin.settings.runtimes;
     if (runtimes.length === 0) {
-      const placeholder = this.runtimeSelect.createEl("option", { text: "(no runtime configured)" });
+      const placeholder = this.runtimeSelect.createEl("option", { text: "(No runtime configured)" });
       placeholder.value = "";
       this.runtimeSelect.value = "";
       this.runtimeSelect.disabled = true;
@@ -500,13 +500,13 @@ export default class ClaudeCliPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE_CLAUDE, (leaf) => new ClaudeCliView(leaf, this));
 
-    this.addRibbonIcon("bot", "Open Any AI CLI", () => {
+    this.addRibbonIcon("bot", "Open AI CLI panel", () => {
       void this.activateView();
     });
 
     this.addCommand({
       id: "open-panel",
-      name: "Open Any AI CLI",
+      name: "Open panel",
       callback: () => {
         void this.activateView();
       }
@@ -535,7 +535,7 @@ export default class ClaudeCliPlugin extends Plugin {
       });
     }
 
-    workspace.revealLeaf(leaf);
+    await workspace.revealLeaf(leaf);
   }
 
   async loadSettings(): Promise<void> {
@@ -589,7 +589,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         const runtimes = this.plugin.settings.runtimes;
         if (runtimes.length === 0) {
-          dropdown.addOption("", "(no runtime configured)");
+          dropdown.addOption("", "(No runtime configured)");
           dropdown.setDisabled(true);
         } else {
           for (const runtime of runtimes) {
@@ -636,7 +636,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("Runtimes").setHeading();
     containerEl.createEl("p", {
-      text: "Configure the CLIs that show up in the sidebar dropdown. Each entry needs a display name and a launch command. Add as many as you want.",
+      text: "Configure the runtimes that show up in the sidebar dropdown. Each entry needs a display name and a launch command. Add as many as you want.",
       cls: "setting-item-description"
     });
 
@@ -644,7 +644,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
 
     if (this.plugin.settings.runtimes.length === 0) {
       runtimesListEl.createEl("p", {
-        text: "No runtimes configured yet. Click 'Add runtime' to create one.",
+        text: "No runtimes configured yet. Use the button below to create one.",
         cls: "setting-item-description"
       });
     }
@@ -665,7 +665,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
         )
         .addText((text) => {
           text
-            .setPlaceholder("Command (e.g. claude, codex --no-alt-screen ...)")
+            .setPlaceholder("Launch command")
             .setValue(runtime.command)
             .onChange(async (value) => {
               this.plugin.settings.runtimes[index].command = value;
@@ -713,10 +713,10 @@ class ClaudeCliSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Node executable")
-      .setDesc("Optional override for PTY proxy Node runtime. Leave as 'auto' for automatic detection.")
+      .setDesc("Path to the node binary used by the proxy. Leave as 'auto' for automatic detection.")
       .addText((text) =>
         text
-          .setPlaceholder("auto")
+          .setPlaceholder("Auto")
           .setValue(this.plugin.settings.nodeExecutable)
           .onChange(async (value) => {
             this.plugin.settings.nodeExecutable = value.trim() || "auto";
