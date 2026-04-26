@@ -25,30 +25,98 @@
   background: var(--interactive-normal);
   color: var(--text-normal);
   border-radius: 6px;
-  padding: 4px 10px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    transform 80ms ease;
 }
 
 .claude-cli-toolbar button:hover {
   background: var(--interactive-hover);
+  border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.claude-cli-toolbar button:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.claude-cli-toolbar button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+}
+
+.claude-cli-toolbar button:disabled,
+.claude-cli-toolbar button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .claude-cli-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  line-height: 1.1;
 }
 
 .claude-cli-btn-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-muted);
+  transition: color 120ms ease;
 }
 
 .claude-cli-btn-icon svg {
   width: 14px;
   height: 14px;
   stroke-width: 2.1;
+}
+
+.claude-cli-toolbar button:hover .claude-cli-btn-icon {
+  color: var(--text-normal);
+}
+
+.claude-cli-toolbar .claude-cli-btn-primary {
+  border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--background-modifier-border));
+}
+
+.claude-cli-toolbar .claude-cli-btn-primary .claude-cli-btn-icon {
+  color: var(--interactive-accent);
+}
+
+.claude-cli-toolbar .claude-cli-btn-primary:hover {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.claude-cli-toolbar .claude-cli-btn-primary:hover .claude-cli-btn-icon {
+  color: var(--text-on-accent);
+}
+
+.claude-cli-toolbar .claude-cli-btn-danger .claude-cli-btn-icon {
+  color: var(--text-error, #d9534f);
+}
+
+.claude-cli-toolbar .claude-cli-btn-danger:hover {
+  background: var(--background-modifier-error, rgba(217, 83, 79, 0.15));
+  border-color: var(--text-error, #d9534f);
+  color: var(--text-error, #d9534f);
+}
+
+.claude-cli-toolbar .claude-cli-btn-danger:hover .claude-cli-btn-icon {
+  color: var(--text-error, #d9534f);
 }
 
 .claude-cli-runtime-picker {
@@ -58,7 +126,22 @@
   border: 1px solid var(--background-modifier-border);
   background: var(--interactive-normal);
   border-radius: 6px;
-  padding: 2px 6px 2px 8px;
+  padding: 3px 8px;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.claude-cli-runtime-picker:hover {
+  background: var(--interactive-hover);
+  border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.claude-cli-runtime-picker:focus-within {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 30%, transparent);
 }
 
 .claude-cli-runtime-picker-icon {
@@ -78,8 +161,10 @@
   border: 0;
   background: transparent;
   color: var(--text-normal);
-  font: inherit;
-  padding: 4px 4px 4px 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 3px 4px 3px 0;
   cursor: pointer;
   outline: none;
 }

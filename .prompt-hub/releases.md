@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.30 - 2026-04-26
+- Polished sidebar toolbar buttons: smoother hover/active transitions, subtle shadow on hover, focus-visible outline ring, dimmed disabled state, and icon color shift on hover.
+- Added semantic accents — `Start` highlights with the Obsidian accent color on hover (primary action), `Stop` highlights with the error color on hover (destructive action).
+- Aligned the runtime dropdown styling with the buttons (matching transitions, hover lift, accent focus ring).
+
 ## 0.1.29 - 2026-04-26
 - Reorganized the sidebar toolbar into two rows: row 1 holds the runtime dropdown followed by `Start`, `Stop`, `Restart`, `Clear`; row 2 holds the `@Active file` button on its own line.
 

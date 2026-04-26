@@ -9476,6 +9476,8 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.setButtonIcon(stopBtn, "square", "Stop");
     this.setButtonIcon(restartBtn, "refresh-cw", "Restart");
     this.setButtonIcon(clearBtn, "eraser", "Clear");
+    startBtn.addClass("claude-cli-btn-primary");
+    stopBtn.addClass("claude-cli-btn-danger");
     const secondaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
     const mentionBtn = secondaryRowEl.createEl("button", { text: "@Active file" });
     this.setButtonIcon(mentionBtn, "file-plus", "@Active file");
