@@ -9496,6 +9496,8 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@Active folder" });
     this.setButtonIcon(mentionBtn, "file-plus", "@Active file");
     this.setButtonIcon(folderMentionBtn, "folder-plus", "@Active folder");
+    mentionBtn.addClass("claude-cli-btn-info");
+    folderMentionBtn.addClass("claude-cli-btn-info");
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
     startBtn.addEventListener("click", () => this.startClaudeProcess());
     stopBtn.addEventListener("click", () => this.stopClaudeProcess());

@@ -123,6 +123,24 @@
   color: #ffffff;
 }
 
+.claude-cli-toolbar .claude-cli-btn-info {
+  border-color: color-mix(in srgb, var(--color-blue, #2563eb) 35%, var(--background-modifier-border));
+}
+
+.claude-cli-toolbar .claude-cli-btn-info .claude-cli-btn-icon {
+  color: var(--color-blue, #2563eb);
+}
+
+.claude-cli-toolbar .claude-cli-btn-info:hover {
+  background: var(--color-blue, #2563eb);
+  border-color: var(--color-blue, #2563eb);
+  color: #ffffff;
+}
+
+.claude-cli-toolbar .claude-cli-btn-info:hover .claude-cli-btn-icon {
+  color: #ffffff;
+}
+
 .claude-cli-runtime-picker {
   display: inline-flex;
   align-items: center;

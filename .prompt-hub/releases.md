@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.33 - 2026-04-26
+- Added a blue highlight accent to `@Active file` and `@Active folder` buttons (resting border tint + icon color, solid blue fill with white text/icon on hover) so the file-context actions read as a paired group distinct from the green Start and red Stop.
+
 ## 0.1.32 - 2026-04-26
 - Added an `@Active folder` button on the sidebar's secondary row that inserts the parent folder of the active file (vault-relative) into the running CLI.
 - Active files at the vault root insert `@./ ` (current working directory marker) so the action remains useful regardless of file location.
