@@ -1,6 +1,6 @@
 {
   "name": "obsidian-any-ai-code",
-  "version": "0.1.26",
+  "version": "0.1.33",
   "description": "Open your local Claude Code CLI inside an Obsidian right sidebar view",
   "main": "main.js",
   "scripts": {

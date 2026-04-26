@@ -1,7 +1,7 @@
 {
   "id": "obsidian-any-ai-code",
   "name": "Any AI CLI",
-  "version": "0.1.26",
+  "version": "0.1.33",
   "minAppVersion": "1.5.0",
   "description": "Open AI CLI in a right sidebar view.",
   "author": "Benoit Lamouche",
