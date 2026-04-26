@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.40 - 2026-04-26
+- Refreshed `README.md` so the intro, goal, features list, requirements, usage walkthrough, and settings reference reflect the multi-runtime model (the README still presented the plugin as Claude-Code-only).
+- Renamed the README title from `Obsidian Any AI Code` to `Any AI CLI` to match the manifest name and updated the Community Plugins enable path accordingly.
+- Generalized the troubleshooting `command not found` entry to any configured CLI instead of hardcoding `claude`.
+
 ## 0.1.39 - 2026-04-26
 - Reworded the `manifest.json` and `package.json` descriptions from `Run AI coding CLIs like Claude Code or Codex from a right sidebar terminal panel.` to `Run AI coding tools like Claude or Codex from a right sidebar terminal panel.` so the Obsidian sentence-case scanner stops flagging the plural acronym `CLIs` and the multi-word product name `Claude Code` as title-case violations.
 - Switched the local ESLint config from `obsidianmd/recommended` to `obsidianmd/recommendedWithLocalesEn` (the same severity as the community submission bot) and added explicit ignores for non-source JSON / lockfiles so future stricter checks land in CI.

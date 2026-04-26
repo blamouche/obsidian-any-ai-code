@@ -1,30 +1,27 @@
-# Obsidian Any AI Code
+# Any AI CLI
 
-![Obsidian Any AI Code](img/banner.png)
+![Any AI CLI](img/banner.png)
 
-Obsidian desktop plugin that opens your **local Claude Code CLI** in a right sidebar panel.
+Run any local AI coding CLI — Claude, Codex, or your own — inside a right sidebar terminal in Obsidian.
 
-## Goal
-
-Use Claude Code directly inside your active Obsidian vault without leaving Obsidian.
+The plugin embeds a real PTY-backed terminal in the sidebar and lets you declare an unlimited list of CLI runtimes from settings (each with a display name and a launch command). Pick one from a dropdown to start it in your active vault folder, switch between them on the fly, and inject the active file or folder as a mention with one click.
 
 ## Features
 
-- Dedicated CLI view in the right sidebar
-- Embedded terminal (xterm)
-- Quick actions: `Start`, `Stop`, `Restart`, `Clear`, `@Active file`, `@Active folder`
-- **Customizable runtime list** — configure as many CLI runtimes as you want (Claude and Codex are pre-populated; add any others from settings) and switch between them via a dropdown in the sidebar
-- Launches the selected runtime in the **current active vault folder**
-- Visible UI status (`Status: ...`)
-- Explicit runtime error messages in the panel
-- Runtime fallbacks for macOS / Linux / Windows
+- Dedicated sidebar view with an embedded `xterm` terminal.
+- **Customizable runtime list** — declare any number of CLI runtimes from settings (Claude and Codex are pre-populated; add Aider, custom wrappers, anything on `PATH`) and switch between them via a sidebar dropdown.
+- One-click `@active file` and `@active folder` buttons that insert the current note path (or its parent folder) as a mention in the running CLI's stdin.
+- Process controls in the toolbar: `Start`, `Stop`, `Restart`, `Clear`.
+- Launches the selected runtime in the **current active vault folder** so the AI sees your notes as the working tree.
+- Resilient PTY stack with multi-tier fallbacks (`node-pty` → Python PTY bridge → direct pipe → `script`) so it works on macOS, Linux, and Windows.
+- Visible runtime status (`Status: ...`) and clear error reporting in the panel.
 
 ## Requirements
 
-- Obsidian Desktop (`isDesktopOnly` plugin)
-- Node.js installed on the machine
-- Claude Code CLI installed (`claude` available)
-- For advanced macOS/Linux fallback: `python3` recommended
+- Obsidian Desktop 1.7.2 or newer (`isDesktopOnly` plugin).
+- Node.js available on the machine.
+- At least one AI coding CLI installed on `PATH` (e.g. `claude`, `codex`, `aider`).
+- For the Python PTY fallback on macOS/Linux: `python3` recommended.
 
 ## Install in a Vault
 
@@ -38,7 +35,7 @@ Use Claude Code directly inside your active Obsidian vault without leaving Obsid
    /PATH/TO/VAULT/.obsidian/plugins/any-ai-cli/
    ```
 
-4. In Obsidian, enable the plugin: `Settings → Community plugins → Installed plugins → Any AI Code`.
+4. In Obsidian, enable the plugin: `Settings → Community plugins → Installed plugins → Any AI CLI`.
 
 That's it. No commands required — the plugin uses an embedded Python PTY bridge fallback so it works out of the box on macOS / Linux (and falls back to direct pipe mode on Windows).
 
@@ -73,27 +70,34 @@ If you assemble the plugin folder by hand, make sure these are present:
 
 ## Usage
 
-- Click the terminal ribbon icon, or run command:
-  - `Open Claude Code panel`
-- The panel opens on the right.
-- Click `Start` to launch Claude.
+1. Click the bot ribbon icon, or run the command palette entry **`Open panel`**, to reveal the panel on the right.
+2. Use the runtime dropdown on the first toolbar row to pick which CLI to launch (Claude, Codex, or any custom entry you added).
+3. Click `Start` to launch the selected runtime in the active vault folder.
+4. While the CLI is running:
+   - Click `@active file` or `@active folder` (second toolbar row) to insert the current note path or its parent folder as a mention.
+   - Click `Restart` to relaunch, `Stop` to terminate, `Clear` to wipe the terminal output.
+5. Switching the dropdown to another runtime while a process is running automatically restarts it on the new CLI (configurable in settings).
 
 ## Plugin Settings
 
-- `Default runtime`: which configured runtime is selected when the panel opens (and used by auto-start).
-- `Auto-start`: starts the default runtime automatically when the panel opens.
-- `Auto-restart on runtime switch`: when you change the runtime from the sidebar dropdown while a process is running, restart it immediately to apply the new selection.
-- `Runtimes`: a customizable list of CLIs that show up in the sidebar dropdown. Each entry has:
-  - `Name`: label shown in the dropdown.
-  - `Command`: the launch command (e.g. `claude`, `codex --no-alt-screen ...`, or any other CLI).
-  - You can add as many runtimes as you want with `Add runtime`, and remove unused ones (the list must keep at least one entry). Claude and Codex are pre-populated on first install.
-- `Node executable`:
-  - `auto` (recommended): automatic detection
-  - or explicit path (`/opt/homebrew/bin/node`, `C:\Program Files\nodejs\node.exe`, etc.)
+General:
 
-### Switching runtime from the sidebar
+- **Default runtime** — which configured runtime is selected when the panel opens (and used by auto-start).
+- **Auto-start** — start the default runtime automatically when the panel opens.
+- **Auto-restart on runtime switch** — when you change the runtime from the sidebar dropdown while a process is running, restart it immediately to apply the new selection.
 
-The sidebar toolbar exposes a runtime dropdown listing every entry from settings. Pick another runtime to switch the panel target — if a process is already running and `Auto-restart on runtime switch` is enabled, the running process is stopped and the newly selected one launches automatically.
+Runtimes section (the customizable list of CLIs shown in the sidebar dropdown):
+
+- Each entry holds a display name and a launch command. Examples:
+  - `Claude` → `claude`
+  - `Codex` → `codex --no-alt-screen -c check_for_update_on_startup=false ...`
+  - `Aider` → `aider --model openrouter/...`
+- Add as many entries as you need with **Add runtime**. Remove unused ones via the trash icon (the list must keep at least one entry).
+- Claude and Codex are pre-populated on first install. Old `command` / `codexCommand` settings from earlier versions are migrated automatically.
+
+Advanced:
+
+- **Node executable** — path to the Node binary used to run the PTY proxy. Leave as `auto` for automatic detection, or override with an explicit path (`/opt/homebrew/bin/node`, `C:\Program Files\nodejs\node.exe`, etc.).
 
 ## Runtime Architecture (Fallback Chain)
 
@@ -108,13 +112,12 @@ Status and logs clearly show the active strategy (`proxy-warn`, `proxy-info`, et
 
 ## Troubleshooting
 
-### `command not found: claude`
+### `command not found: <cli>`
 
-Claude binary is not in Obsidian process `PATH`.
+The CLI binary is not in Obsidian's process `PATH`. Either:
 
-- Set `Command` to an absolute path, for example:
-  - `/Users/<you>/.local/bin/claude`
-- Or adjust your shell/Obsidian environment.
+- Edit the runtime entry in settings and set the **Launch command** to an absolute path, for example `/Users/<you>/.local/bin/claude` or `/opt/homebrew/bin/codex`.
+- Or adjust your shell/Obsidian environment so the CLI resolves on `PATH`.
 
 ### `Cannot find module 'node-pty'`
 
