@@ -10,10 +10,11 @@ Use Claude Code directly inside your active Obsidian vault without leaving Obsid
 
 ## Features
 
-- Dedicated `Claude Code` view in the right sidebar
+- Dedicated CLI view in the right sidebar
 - Embedded terminal (xterm)
-- Quick actions: `Start`, `Stop`, `Restart`, `Clear`
-- Launches Claude in the **current active vault folder**
+- Quick actions: `Start`, `Stop`, `Restart`, `Clear`, `@Active file`
+- **Customizable runtime list** — configure as many CLI runtimes as you want (Claude and Codex are pre-populated; add any others from settings) and switch between them via a dropdown in the sidebar
+- Launches the selected runtime in the **current active vault folder**
 - Visible UI status (`Status: ...`)
 - Explicit runtime error messages in the panel
 - Runtime fallbacks for macOS / Linux / Windows
@@ -79,11 +80,20 @@ If you assemble the plugin folder by hand, make sure these are present:
 
 ## Plugin Settings
 
-- `Command`: command to run (default: `claude`)
-- `Auto-start`: starts automatically when panel opens
+- `Default runtime`: which configured runtime is selected when the panel opens (and used by auto-start).
+- `Auto-start`: starts the default runtime automatically when the panel opens.
+- `Auto-restart on runtime switch`: when you change the runtime from the sidebar dropdown while a process is running, restart it immediately to apply the new selection.
+- `Runtimes`: a customizable list of CLIs that show up in the sidebar dropdown. Each entry has:
+  - `Name`: label shown in the dropdown.
+  - `Command`: the launch command (e.g. `claude`, `codex --no-alt-screen ...`, or any other CLI).
+  - You can add as many runtimes as you want with `Add runtime`, and remove unused ones (the list must keep at least one entry). Claude and Codex are pre-populated on first install.
 - `Node executable`:
   - `auto` (recommended): automatic detection
   - or explicit path (`/opt/homebrew/bin/node`, `C:\Program Files\nodejs\node.exe`, etc.)
+
+### Switching runtime from the sidebar
+
+The sidebar toolbar exposes a runtime dropdown listing every entry from settings. Pick another runtime to switch the panel target — if a process is already running and `Auto-restart on runtime switch` is enabled, the running process is stopped and the newly selected one launches automatically.
 
 ## Runtime Architecture (Fallback Chain)
 

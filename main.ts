@@ -3,33 +3,45 @@ import type { ChildProcess } from "child_process";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import {
+  defaultGenerateRuntimeId,
   detectNodeExecutable,
   formatActiveFileMention,
+  isCodexLikeCommand,
   mergePathEntries as mergePathEntriesForPlatform,
-  resolvePluginDir as resolvePluginDirWithVault
+  migrateRuntimeSettings,
+  resolvePluginDir as resolvePluginDirWithVault,
+  type CliRuntimeConfig
 } from "./runtime-utils";
 
 const VIEW_TYPE_CLAUDE = "claude-cli-view";
-type CliRuntime = "claude" | "codex";
+
+const CODEX_DEFAULT_COMMAND =
+  "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true";
+
+const DEFAULT_RUNTIMES: CliRuntimeConfig[] = [
+  { id: "claude", name: "Claude", command: "claude" },
+  { id: "codex", name: "Codex", command: CODEX_DEFAULT_COMMAND }
+];
 
 interface ClaudeCliPluginSettings {
-  command: string;
-  codexCommand: string;
+  runtimes: CliRuntimeConfig[];
+  selectedRuntimeId: string;
   autoRestartOnRuntimeSwitch: boolean;
   autoStart: boolean;
   nodeExecutable: string;
-  runtime: CliRuntime;
 }
 
 const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
-  command: "claude",
-  codexCommand:
-    "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true",
+  runtimes: DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime })),
+  selectedRuntimeId: "claude",
   autoRestartOnRuntimeSwitch: true,
   autoStart: true,
-  nodeExecutable: "auto",
-  runtime: "claude"
+  nodeExecutable: "auto"
 };
+
+function cloneDefaultRuntimes(): CliRuntimeConfig[] {
+  return DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime }));
+}
 
 interface ProcessAdapter {
   write(data: string): void;
@@ -47,9 +59,9 @@ class ClaudeCliView extends ItemView {
   private terminalHostEl: HTMLDivElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private statusEl: HTMLDivElement | null = null;
-  private runtimeButtons: Record<CliRuntime, HTMLButtonElement> | null = null;
-  private runningRuntime: CliRuntime | null = null;
-  private pendingStartRuntime: CliRuntime | null = null;
+  private runtimeSelect: HTMLSelectElement | null = null;
+  private runningRuntimeId: string | null = null;
+  private pendingStartRuntimeId: string | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: ClaudeCliPlugin) {
     super(leaf);
@@ -78,18 +90,17 @@ class ClaudeCliView extends ItemView {
     const restartBtn = toolbarEl.createEl("button", { text: "Restart" });
     const clearBtn = toolbarEl.createEl("button", { text: "Clear" });
     const mentionBtn = toolbarEl.createEl("button", { text: "@Active file" });
-    const runtimeToggleEl = toolbarEl.createDiv({ cls: "claude-cli-runtime-toggle" });
-    const claudeBtn = runtimeToggleEl.createEl("button", { text: "Claude" });
-    const codexBtn = runtimeToggleEl.createEl("button", { text: "Codex" });
+    const runtimePickerEl = toolbarEl.createDiv({ cls: "claude-cli-runtime-picker" });
+    const runtimeIconEl = runtimePickerEl.createSpan({ cls: "claude-cli-runtime-picker-icon" });
+    setIcon(runtimeIconEl, "terminal");
+    this.runtimeSelect = runtimePickerEl.createEl("select", { cls: "claude-cli-runtime-select" });
+    this.runtimeSelect.setAttribute("aria-label", "Select runtime");
+    this.refreshRuntimeSelect();
     this.setButtonIcon(startBtn, "play", "Start");
     this.setButtonIcon(stopBtn, "square", "Stop");
     this.setButtonIcon(restartBtn, "refresh-cw", "Restart");
     this.setButtonIcon(clearBtn, "eraser", "Clear");
     this.setButtonIcon(mentionBtn, "file-plus", "@Active file");
-    this.setButtonIcon(claudeBtn, "bot", "Claude");
-    this.setButtonIcon(codexBtn, "code-2", "Codex");
-    this.runtimeButtons = { claude: claudeBtn, codex: codexBtn };
-    this.updateRuntimeButtons();
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
 
     startBtn.addEventListener("click", () => this.startClaudeProcess());
@@ -97,8 +108,11 @@ class ClaudeCliView extends ItemView {
     restartBtn.addEventListener("click", () => this.restartClaudeProcess());
     clearBtn.addEventListener("click", () => this.terminal?.clear());
     mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
-    claudeBtn.addEventListener("click", () => this.setRuntime("claude"));
-    codexBtn.addEventListener("click", () => this.setRuntime("codex"));
+    this.runtimeSelect.addEventListener("change", () => {
+      if (this.runtimeSelect) {
+        this.setRuntime(this.runtimeSelect.value);
+      }
+    });
 
     this.terminalHostEl = this.contentEl.createDiv({ cls: "claude-cli-terminal" });
 
@@ -143,6 +157,30 @@ class ClaudeCliView extends ItemView {
     }
   }
 
+  refreshRuntimeSelect(): void {
+    if (!this.runtimeSelect) {
+      return;
+    }
+    this.runtimeSelect.empty();
+    const runtimes = this.plugin.settings.runtimes;
+    if (runtimes.length === 0) {
+      const placeholder = this.runtimeSelect.createEl("option", { text: "(no runtime configured)" });
+      placeholder.value = "";
+      this.runtimeSelect.value = "";
+      this.runtimeSelect.disabled = true;
+      return;
+    }
+    this.runtimeSelect.disabled = false;
+    for (const runtime of runtimes) {
+      const opt = this.runtimeSelect.createEl("option", { text: runtime.name || "(unnamed)" });
+      opt.value = runtime.id;
+    }
+    const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
+    this.runtimeSelect.value = validSelection
+      ? this.plugin.settings.selectedRuntimeId
+      : runtimes[0].id;
+  }
+
   async onClose(): Promise<void> {
     this.stopClaudeProcess();
     this.resizeObserver?.disconnect();
@@ -153,28 +191,46 @@ class ClaudeCliView extends ItemView {
     this.statusEl = null;
   }
 
-  async startClaudeProcess(runtimeOverride?: CliRuntime): Promise<void> {
+  async startClaudeProcess(runtimeIdOverride?: string): Promise<void> {
     if (!this.terminal) {
       return;
     }
-    const targetRuntime = runtimeOverride ?? this.plugin.settings.runtime;
-    const targetLabel = this.getRuntimeLabel(targetRuntime);
+    const targetRuntime = runtimeIdOverride
+      ? this.plugin.settings.runtimes.find((r) => r.id === runtimeIdOverride)
+      : this.getSelectedRuntime();
+    if (!targetRuntime) {
+      const message = "No runtime configured. Add one in plugin settings.";
+      this.writeSystemLine(`[${message}]`);
+      this.setStatus(message);
+      new Notice(message, 6000);
+      return;
+    }
+
+    const targetLabel = targetRuntime.name || "(unnamed runtime)";
 
     if (this.processHandle) {
-      if (this.runningRuntime === targetRuntime) {
+      if (this.runningRuntimeId === targetRuntime.id) {
         this.writeSystemLine(`[${targetLabel} process is already running]`);
         this.setStatus("Already running");
       } else {
-        this.pendingStartRuntime = targetRuntime;
+        this.pendingStartRuntimeId = targetRuntime.id;
         this.writeSystemLine(`[Switch requested: ${targetLabel}. Stopping current process first...]`);
         this.stopClaudeProcess(true);
       }
       return;
     }
 
-    const runtimeLabel = this.getRuntimeLabel(targetRuntime);
-    const command = this.getRuntimeCommand(targetRuntime);
-    if (targetRuntime === "codex") {
+    const command = (targetRuntime.command || "").trim();
+    if (!command) {
+      const message = `Runtime "${targetLabel}" has an empty command. Set one in plugin settings.`;
+      this.writeSystemLine(`[${message}]`);
+      this.setStatus(message);
+      new Notice(message, 6000);
+      return;
+    }
+
+    const codexLike = isCodexLikeCommand(command);
+    if (codexLike) {
       this.resetTerminalDisplay();
     }
 
@@ -184,7 +240,7 @@ class ClaudeCliView extends ItemView {
     try {
       const vaultPath = getVaultBasePath(this.app);
       if (!vaultPath) {
-        const message = `Unable to resolve current vault path. ${runtimeLabel} was not started.`;
+        const message = `Unable to resolve current vault path. ${targetLabel} was not started.`;
         this.writeSystemLine(`[${message}]`);
         this.setStatus(message);
         new Notice(message, 6000);
@@ -200,7 +256,7 @@ class ClaudeCliView extends ItemView {
       }
 
       const shellEnv = getShellEnv();
-      if (targetRuntime === "codex") {
+      if (codexLike) {
         // Keep Codex output readable in embedded terminals.
         shellEnv.NO_COLOR = "1";
         shellEnv.CLICOLOR = "0";
@@ -218,14 +274,14 @@ class ClaudeCliView extends ItemView {
         vaultPath
       });
       this.processHandle = makeProxyAdapter(helperHandle);
-      this.runningRuntime = targetRuntime;
+      this.runningRuntimeId = targetRuntime.id;
     } catch (error) {
       const message = `Failed to start process: ${(error as Error).message}`;
       this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 7000);
       this.processHandle = null;
-      this.runningRuntime = null;
+      this.runningRuntimeId = null;
       return;
     }
     this.setStatus("Running");
@@ -239,11 +295,11 @@ class ClaudeCliView extends ItemView {
       this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       this.processHandle = null;
-      this.runningRuntime = null;
-      const nextRuntime = this.pendingStartRuntime;
-      this.pendingStartRuntime = null;
-      if (nextRuntime) {
-        void this.startClaudeProcess(nextRuntime);
+      this.runningRuntimeId = null;
+      const nextRuntimeId = this.pendingStartRuntimeId;
+      this.pendingStartRuntimeId = null;
+      if (nextRuntimeId) {
+        void this.startClaudeProcess(nextRuntimeId);
       }
     });
 
@@ -255,7 +311,7 @@ class ClaudeCliView extends ItemView {
       return;
     }
     if (!preservePendingStart) {
-      this.pendingStartRuntime = null;
+      this.pendingStartRuntimeId = null;
     }
 
     this.writeSystemLine(`[Stopping ${this.getRunningRuntimeLabel()} process...]`);
@@ -274,32 +330,42 @@ class ClaudeCliView extends ItemView {
     this.statusEl?.setText(`Status: ${message}`);
   }
 
-  private getRuntimeLabel(runtime: CliRuntime = this.plugin.settings.runtime): string {
-    return runtime === "codex" ? "Codex" : "Claude";
+  private getSelectedRuntime(): CliRuntimeConfig | null {
+    const { runtimes, selectedRuntimeId } = this.plugin.settings;
+    return (
+      runtimes.find((r) => r.id === selectedRuntimeId) ??
+      runtimes[0] ??
+      null
+    );
+  }
+
+  private getRuntimeLabel(runtimeId?: string): string {
+    if (runtimeId) {
+      const match = this.plugin.settings.runtimes.find((r) => r.id === runtimeId);
+      return match?.name || "(unnamed runtime)";
+    }
+    return this.getSelectedRuntime()?.name || "(no runtime)";
   }
 
   private getRunningRuntimeLabel(): string {
-    if (!this.runningRuntime) {
+    if (!this.runningRuntimeId) {
       return this.getRuntimeLabel();
     }
-    return this.getRuntimeLabel(this.runningRuntime);
-  }
-
-  private getRuntimeCommand(runtime: CliRuntime = this.plugin.settings.runtime): string {
-    if (runtime === "codex") {
-      return this.plugin.settings.codexCommand.trim() || DEFAULT_SETTINGS.codexCommand;
-    }
-    return this.plugin.settings.command.trim();
+    return this.getRuntimeLabel(this.runningRuntimeId);
   }
 
   private restartClaudeProcess(): void {
-    const targetRuntime = this.plugin.settings.runtime;
-    if (!this.processHandle) {
-      void this.startClaudeProcess(targetRuntime);
+    const target = this.getSelectedRuntime();
+    if (!target) {
+      void this.startClaudeProcess();
       return;
     }
-    this.pendingStartRuntime = targetRuntime;
-    this.writeSystemLine(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
+    if (!this.processHandle) {
+      void this.startClaudeProcess(target.id);
+      return;
+    }
+    this.pendingStartRuntimeId = target.id;
+    this.writeSystemLine(`[Restart requested: ${target.name}]`);
     this.stopClaudeProcess(true);
   }
 
@@ -312,14 +378,22 @@ class ClaudeCliView extends ItemView {
     this.fitAddon?.fit();
   }
 
-  private setRuntime(runtime: CliRuntime): void {
-    if (this.plugin.settings.runtime === runtime) {
+  private setRuntime(runtimeId: string): void {
+    if (!runtimeId) {
+      return;
+    }
+    const exists = this.plugin.settings.runtimes.some((r) => r.id === runtimeId);
+    if (!exists) {
+      this.refreshRuntimeSelect();
+      return;
+    }
+    if (this.plugin.settings.selectedRuntimeId === runtimeId) {
       return;
     }
 
-    this.plugin.settings.runtime = runtime;
+    this.plugin.settings.selectedRuntimeId = runtimeId;
     void this.plugin.saveSettings();
-    this.updateRuntimeButtons();
+    this.refreshRuntimeSelect();
 
     const selectedLabel = this.getRuntimeLabel();
     this.writeSystemLine(`[Runtime selected: ${selectedLabel}]`);
@@ -333,15 +407,6 @@ class ClaudeCliView extends ItemView {
       return;
     }
     this.setStatus(`${selectedLabel} selected`);
-  }
-
-  private updateRuntimeButtons(): void {
-    if (!this.runtimeButtons) {
-      return;
-    }
-
-    this.runtimeButtons.claude.toggleClass("is-active", this.plugin.settings.runtime === "claude");
-    this.runtimeButtons.codex.toggleClass("is-active", this.plugin.settings.runtime === "codex");
   }
 
   private insertActiveFileMention(): void {
@@ -427,11 +492,35 @@ export default class ClaudeCliPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const raw = ((await this.loadData()) ?? {}) as Record<string, unknown>;
+    const { runtimes, selectedRuntimeId } = migrateRuntimeSettings(raw, cloneDefaultRuntimes());
+    this.settings = {
+      runtimes,
+      selectedRuntimeId,
+      autoRestartOnRuntimeSwitch:
+        typeof raw.autoRestartOnRuntimeSwitch === "boolean"
+          ? raw.autoRestartOnRuntimeSwitch
+          : DEFAULT_SETTINGS.autoRestartOnRuntimeSwitch,
+      autoStart:
+        typeof raw.autoStart === "boolean" ? raw.autoStart : DEFAULT_SETTINGS.autoStart,
+      nodeExecutable:
+        typeof raw.nodeExecutable === "string" && raw.nodeExecutable.trim()
+          ? raw.nodeExecutable
+          : DEFAULT_SETTINGS.nodeExecutable
+    };
   }
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  notifyRuntimesChanged(): void {
+    this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE).forEach((leaf) => {
+      const view = leaf.view;
+      if (view instanceof ClaudeCliView) {
+        view.refreshRuntimeSelect();
+      }
+    });
   }
 }
 
@@ -458,16 +547,29 @@ class ClaudeCliSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Default runtime")
       .setDesc("Runtime selected by default when opening the panel (and used by auto-start).")
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption("claude", "Claude")
-          .addOption("codex", "Codex")
-          .setValue(this.plugin.settings.runtime)
-          .onChange(async (value) => {
-            this.plugin.settings.runtime = (value === "codex" ? "codex" : "claude") as CliRuntime;
-            await this.plugin.saveSettings();
-          })
-      );
+      .addDropdown((dropdown) => {
+        const runtimes = this.plugin.settings.runtimes;
+        if (runtimes.length === 0) {
+          dropdown.addOption("", "(no runtime configured)");
+          dropdown.setDisabled(true);
+        } else {
+          for (const runtime of runtimes) {
+            dropdown.addOption(runtime.id, runtime.name || "(unnamed)");
+          }
+          const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
+          dropdown.setValue(
+            validSelection ? this.plugin.settings.selectedRuntimeId : runtimes[0].id
+          );
+        }
+        dropdown.onChange(async (value) => {
+          if (!value) {
+            return;
+          }
+          this.plugin.settings.selectedRuntimeId = value;
+          await this.plugin.saveSettings();
+          this.plugin.notifyRuntimesChanged();
+        });
+      });
 
     new Setting(containerEl)
       .setName("Auto-start")
@@ -483,7 +585,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Auto-restart on runtime switch")
-      .setDesc("Automatically restart the running process when switching Claude/Codex from the toolbar.")
+      .setDesc("Automatically restart the running process when changing the runtime from the sidebar dropdown.")
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoRestartOnRuntimeSwitch)
@@ -493,33 +595,80 @@ class ClaudeCliSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.createEl("h3", { text: "Commands" });
+    containerEl.createEl("h3", { text: "Runtimes" });
+    containerEl.createEl("p", {
+      text: "Configure the CLIs that show up in the sidebar dropdown. Each entry needs a display name and a launch command. Add as many as you want.",
+      cls: "setting-item-description"
+    });
 
-    new Setting(containerEl)
-      .setName("Claude command")
-      .setDesc("Command used to launch Claude in the embedded terminal.")
-      .addText((text) =>
-        text
-          .setPlaceholder("claude")
-          .setValue(this.plugin.settings.command)
-          .onChange(async (value) => {
-            this.plugin.settings.command = value.trim() || "claude";
-            await this.plugin.saveSettings();
-          })
-      );
+    const runtimesListEl = containerEl.createDiv({ cls: "claude-cli-runtimes-list" });
 
-    new Setting(containerEl)
-      .setName("Codex command")
-      .setDesc("Command used to launch Codex in the embedded terminal.")
-      .addText((text) =>
-        text
-          .setPlaceholder(DEFAULT_SETTINGS.codexCommand)
-          .setValue(this.plugin.settings.codexCommand)
-          .onChange(async (value) => {
-            this.plugin.settings.codexCommand = value.trim() || DEFAULT_SETTINGS.codexCommand;
-            await this.plugin.saveSettings();
-          })
-      );
+    if (this.plugin.settings.runtimes.length === 0) {
+      runtimesListEl.createEl("p", {
+        text: "No runtimes configured yet. Click 'Add runtime' to create one.",
+        cls: "setting-item-description"
+      });
+    }
+
+    this.plugin.settings.runtimes.forEach((runtime, index) => {
+      const setting = new Setting(runtimesListEl).setClass("claude-cli-runtime-item");
+      setting.infoEl.detach();
+      setting
+        .addText((text) =>
+          text
+            .setPlaceholder("Name")
+            .setValue(runtime.name)
+            .onChange(async (value) => {
+              this.plugin.settings.runtimes[index].name = value;
+              await this.plugin.saveSettings();
+              this.plugin.notifyRuntimesChanged();
+            })
+        )
+        .addText((text) => {
+          text
+            .setPlaceholder("Command (e.g. claude, codex --no-alt-screen ...)")
+            .setValue(runtime.command)
+            .onChange(async (value) => {
+              this.plugin.settings.runtimes[index].command = value;
+              await this.plugin.saveSettings();
+            });
+          text.inputEl.addClass("claude-cli-runtime-command-input");
+        })
+        .addExtraButton((btn) =>
+          btn
+            .setIcon("trash-2")
+            .setTooltip("Remove runtime")
+            .onClick(async () => {
+              if (this.plugin.settings.runtimes.length <= 1) {
+                new Notice("Keep at least one runtime configured.", 4000);
+                return;
+              }
+              const removed = this.plugin.settings.runtimes.splice(index, 1)[0];
+              if (this.plugin.settings.selectedRuntimeId === removed.id) {
+                this.plugin.settings.selectedRuntimeId = this.plugin.settings.runtimes[0].id;
+              }
+              await this.plugin.saveSettings();
+              this.plugin.notifyRuntimesChanged();
+              this.display();
+            })
+        );
+    });
+
+    new Setting(containerEl).addButton((btn) =>
+      btn
+        .setButtonText("Add runtime")
+        .setIcon("plus")
+        .onClick(async () => {
+          this.plugin.settings.runtimes.push({
+            id: defaultGenerateRuntimeId(),
+            name: "New runtime",
+            command: ""
+          });
+          await this.plugin.saveSettings();
+          this.plugin.notifyRuntimesChanged();
+          this.display();
+        })
+    );
 
     containerEl.createEl("h3", { text: "Advanced" });
 

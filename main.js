@@ -9289,6 +9289,66 @@ var o = class {
 function formatActiveFileMention(fileName) {
   return `@${fileName.trim()} `;
 }
+function isCodexLikeCommand(command) {
+  if (typeof command !== "string") {
+    return false;
+  }
+  const trimmed = command.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return trimmed === "codex" || /^codex(\s|$)/.test(trimmed);
+}
+function migrateRuntimeSettings(raw, defaults, generateId = defaultGenerateRuntimeId) {
+  const fallbackDefaults = defaults.length > 0 ? defaults.map((d) => ({ ...d })) : [{ id: generateId(), name: "Default", command: "" }];
+  if (raw && Array.isArray(raw.runtimes)) {
+    const sanitized = sanitizeRuntimes(raw.runtimes, generateId);
+    if (sanitized.length > 0) {
+      const selected = typeof raw.selectedRuntimeId === "string" && sanitized.some((r) => r.id === raw.selectedRuntimeId) ? raw.selectedRuntimeId : sanitized[0].id;
+      return { runtimes: sanitized, selectedRuntimeId: selected };
+    }
+  }
+  const runtimes = fallbackDefaults;
+  if (raw && typeof raw.command === "string" && raw.command.trim()) {
+    const claude = runtimes.find((r) => r.id === "claude");
+    if (claude) {
+      claude.command = raw.command.trim();
+    }
+  }
+  if (raw && typeof raw.codexCommand === "string" && raw.codexCommand.trim()) {
+    const codex = runtimes.find((r) => r.id === "codex");
+    if (codex) {
+      codex.command = raw.codexCommand.trim();
+    }
+  }
+  const legacyRuntime = typeof (raw == null ? void 0 : raw.runtime) === "string" && (raw.runtime === "claude" || raw.runtime === "codex") ? raw.runtime : void 0;
+  const selectedRuntimeId = legacyRuntime && runtimes.some((r) => r.id === legacyRuntime) ? legacyRuntime : runtimes[0].id;
+  return { runtimes, selectedRuntimeId };
+}
+function sanitizeRuntimes(raw, generateId) {
+  const result = [];
+  const seenIds = /* @__PURE__ */ new Set();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const candidate = entry;
+    const name = typeof candidate.name === "string" ? candidate.name : "";
+    const command = typeof candidate.command === "string" ? candidate.command : "";
+    let id = typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : generateId();
+    while (seenIds.has(id)) {
+      id = generateId();
+    }
+    seenIds.add(id);
+    result.push({ id, name, command });
+  }
+  return result;
+}
+function defaultGenerateRuntimeId() {
+  const cryptoApi = globalThis.crypto;
+  if (cryptoApi && typeof cryptoApi.randomUUID === "function") {
+    return cryptoApi.randomUUID();
+  }
+  return `runtime-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 function resolvePluginDir(pluginDir, vaultBasePath, pathApi) {
   if (!pluginDir) {
     return void 0;
@@ -9359,14 +9419,21 @@ function detectNodeExecutable(configuredValue, platform, env, existsSync, pathAp
 
 // main.ts
 var VIEW_TYPE_CLAUDE = "claude-cli-view";
+var CODEX_DEFAULT_COMMAND = "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true";
+var DEFAULT_RUNTIMES = [
+  { id: "claude", name: "Claude", command: "claude" },
+  { id: "codex", name: "Codex", command: CODEX_DEFAULT_COMMAND }
+];
 var DEFAULT_SETTINGS = {
-  command: "claude",
-  codexCommand: "codex --no-alt-screen -c check_for_update_on_startup=false -c hide_full_access_warning=true -c hide_world_writable_warning=true -c hide_rate_limit_model_nudge=true",
+  runtimes: DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime })),
+  selectedRuntimeId: "claude",
   autoRestartOnRuntimeSwitch: true,
   autoStart: true,
-  nodeExecutable: "auto",
-  runtime: "claude"
+  nodeExecutable: "auto"
 };
+function cloneDefaultRuntimes() {
+  return DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime }));
+}
 var ClaudeCliView = class extends import_obsidian.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -9376,9 +9443,9 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.terminalHostEl = null;
     this.resizeObserver = null;
     this.statusEl = null;
-    this.runtimeButtons = null;
-    this.runningRuntime = null;
-    this.pendingStartRuntime = null;
+    this.runtimeSelect = null;
+    this.runningRuntimeId = null;
+    this.pendingStartRuntimeId = null;
     this.plugin = plugin;
   }
   getViewType() {
@@ -9399,18 +9466,17 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     const restartBtn = toolbarEl.createEl("button", { text: "Restart" });
     const clearBtn = toolbarEl.createEl("button", { text: "Clear" });
     const mentionBtn = toolbarEl.createEl("button", { text: "@Active file" });
-    const runtimeToggleEl = toolbarEl.createDiv({ cls: "claude-cli-runtime-toggle" });
-    const claudeBtn = runtimeToggleEl.createEl("button", { text: "Claude" });
-    const codexBtn = runtimeToggleEl.createEl("button", { text: "Codex" });
+    const runtimePickerEl = toolbarEl.createDiv({ cls: "claude-cli-runtime-picker" });
+    const runtimeIconEl = runtimePickerEl.createSpan({ cls: "claude-cli-runtime-picker-icon" });
+    (0, import_obsidian.setIcon)(runtimeIconEl, "terminal");
+    this.runtimeSelect = runtimePickerEl.createEl("select", { cls: "claude-cli-runtime-select" });
+    this.runtimeSelect.setAttribute("aria-label", "Select runtime");
+    this.refreshRuntimeSelect();
     this.setButtonIcon(startBtn, "play", "Start");
     this.setButtonIcon(stopBtn, "square", "Stop");
     this.setButtonIcon(restartBtn, "refresh-cw", "Restart");
     this.setButtonIcon(clearBtn, "eraser", "Clear");
     this.setButtonIcon(mentionBtn, "file-plus", "@Active file");
-    this.setButtonIcon(claudeBtn, "bot", "Claude");
-    this.setButtonIcon(codexBtn, "code-2", "Codex");
-    this.runtimeButtons = { claude: claudeBtn, codex: codexBtn };
-    this.updateRuntimeButtons();
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
     startBtn.addEventListener("click", () => this.startClaudeProcess());
     stopBtn.addEventListener("click", () => this.stopClaudeProcess());
@@ -9420,8 +9486,11 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       return (_a5 = this.terminal) == null ? void 0 : _a5.clear();
     });
     mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
-    claudeBtn.addEventListener("click", () => this.setRuntime("claude"));
-    codexBtn.addEventListener("click", () => this.setRuntime("codex"));
+    this.runtimeSelect.addEventListener("change", () => {
+      if (this.runtimeSelect) {
+        this.setRuntime(this.runtimeSelect.value);
+      }
+    });
     this.terminalHostEl = this.contentEl.createDiv({ cls: "claude-cli-terminal" });
     this.terminal = new Dl({
       cursorBlink: true,
@@ -9462,6 +9531,27 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       this.setStatus("Idle");
     }
   }
+  refreshRuntimeSelect() {
+    if (!this.runtimeSelect) {
+      return;
+    }
+    this.runtimeSelect.empty();
+    const runtimes = this.plugin.settings.runtimes;
+    if (runtimes.length === 0) {
+      const placeholder = this.runtimeSelect.createEl("option", { text: "(no runtime configured)" });
+      placeholder.value = "";
+      this.runtimeSelect.value = "";
+      this.runtimeSelect.disabled = true;
+      return;
+    }
+    this.runtimeSelect.disabled = false;
+    for (const runtime of runtimes) {
+      const opt = this.runtimeSelect.createEl("option", { text: runtime.name || "(unnamed)" });
+      opt.value = runtime.id;
+    }
+    const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
+    this.runtimeSelect.value = validSelection ? this.plugin.settings.selectedRuntimeId : runtimes[0].id;
+  }
   async onClose() {
     var _a5, _b;
     this.stopClaudeProcess();
@@ -9472,27 +9562,41 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.fitAddon = null;
     this.statusEl = null;
   }
-  async startClaudeProcess(runtimeOverride) {
+  async startClaudeProcess(runtimeIdOverride) {
     var _a5;
     if (!this.terminal) {
       return;
     }
-    const targetRuntime = runtimeOverride != null ? runtimeOverride : this.plugin.settings.runtime;
-    const targetLabel = this.getRuntimeLabel(targetRuntime);
+    const targetRuntime = runtimeIdOverride ? this.plugin.settings.runtimes.find((r) => r.id === runtimeIdOverride) : this.getSelectedRuntime();
+    if (!targetRuntime) {
+      const message = "No runtime configured. Add one in plugin settings.";
+      this.writeSystemLine(`[${message}]`);
+      this.setStatus(message);
+      new import_obsidian.Notice(message, 6e3);
+      return;
+    }
+    const targetLabel = targetRuntime.name || "(unnamed runtime)";
     if (this.processHandle) {
-      if (this.runningRuntime === targetRuntime) {
+      if (this.runningRuntimeId === targetRuntime.id) {
         this.writeSystemLine(`[${targetLabel} process is already running]`);
         this.setStatus("Already running");
       } else {
-        this.pendingStartRuntime = targetRuntime;
+        this.pendingStartRuntimeId = targetRuntime.id;
         this.writeSystemLine(`[Switch requested: ${targetLabel}. Stopping current process first...]`);
         this.stopClaudeProcess(true);
       }
       return;
     }
-    const runtimeLabel = this.getRuntimeLabel(targetRuntime);
-    const command = this.getRuntimeCommand(targetRuntime);
-    if (targetRuntime === "codex") {
+    const command = (targetRuntime.command || "").trim();
+    if (!command) {
+      const message = `Runtime "${targetLabel}" has an empty command. Set one in plugin settings.`;
+      this.writeSystemLine(`[${message}]`);
+      this.setStatus(message);
+      new import_obsidian.Notice(message, 6e3);
+      return;
+    }
+    const codexLike = isCodexLikeCommand(command);
+    if (codexLike) {
       this.resetTerminalDisplay();
     }
     this.writeSystemLine(`[Starting: ${command}]`);
@@ -9500,7 +9604,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     try {
       const vaultPath = getVaultBasePath(this.app);
       if (!vaultPath) {
-        const message = `Unable to resolve current vault path. ${runtimeLabel} was not started.`;
+        const message = `Unable to resolve current vault path. ${targetLabel} was not started.`;
         this.writeSystemLine(`[${message}]`);
         this.setStatus(message);
         new import_obsidian.Notice(message, 6e3);
@@ -9515,7 +9619,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
         return;
       }
       const shellEnv = getShellEnv();
-      if (targetRuntime === "codex") {
+      if (codexLike) {
         shellEnv.NO_COLOR = "1";
         shellEnv.CLICOLOR = "0";
         shellEnv.FORCE_COLOR = "0";
@@ -9531,14 +9635,14 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
         vaultPath
       });
       this.processHandle = makeProxyAdapter(helperHandle);
-      this.runningRuntime = targetRuntime;
+      this.runningRuntimeId = targetRuntime.id;
     } catch (error) {
       const message = `Failed to start process: ${error.message}`;
       this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new import_obsidian.Notice(message, 7e3);
       this.processHandle = null;
-      this.runningRuntime = null;
+      this.runningRuntimeId = null;
       return;
     }
     this.setStatus("Running");
@@ -9551,11 +9655,11 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       this.processHandle = null;
-      this.runningRuntime = null;
-      const nextRuntime = this.pendingStartRuntime;
-      this.pendingStartRuntime = null;
-      if (nextRuntime) {
-        void this.startClaudeProcess(nextRuntime);
+      this.runningRuntimeId = null;
+      const nextRuntimeId = this.pendingStartRuntimeId;
+      this.pendingStartRuntimeId = null;
+      if (nextRuntimeId) {
+        void this.startClaudeProcess(nextRuntimeId);
       }
     });
     (_a5 = this.fitAddon) == null ? void 0 : _a5.fit();
@@ -9565,7 +9669,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       return;
     }
     if (!preservePendingStart) {
-      this.pendingStartRuntime = null;
+      this.pendingStartRuntimeId = null;
     }
     this.writeSystemLine(`[Stopping ${this.getRunningRuntimeLabel()} process...]`);
     this.setStatus("Stopping...");
@@ -9582,29 +9686,37 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     var _a5;
     (_a5 = this.statusEl) == null ? void 0 : _a5.setText(`Status: ${message}`);
   }
-  getRuntimeLabel(runtime = this.plugin.settings.runtime) {
-    return runtime === "codex" ? "Codex" : "Claude";
+  getSelectedRuntime() {
+    var _a5, _b;
+    const { runtimes, selectedRuntimeId } = this.plugin.settings;
+    return (_b = (_a5 = runtimes.find((r) => r.id === selectedRuntimeId)) != null ? _a5 : runtimes[0]) != null ? _b : null;
+  }
+  getRuntimeLabel(runtimeId) {
+    var _a5;
+    if (runtimeId) {
+      const match = this.plugin.settings.runtimes.find((r) => r.id === runtimeId);
+      return (match == null ? void 0 : match.name) || "(unnamed runtime)";
+    }
+    return ((_a5 = this.getSelectedRuntime()) == null ? void 0 : _a5.name) || "(no runtime)";
   }
   getRunningRuntimeLabel() {
-    if (!this.runningRuntime) {
+    if (!this.runningRuntimeId) {
       return this.getRuntimeLabel();
     }
-    return this.getRuntimeLabel(this.runningRuntime);
-  }
-  getRuntimeCommand(runtime = this.plugin.settings.runtime) {
-    if (runtime === "codex") {
-      return this.plugin.settings.codexCommand.trim() || DEFAULT_SETTINGS.codexCommand;
-    }
-    return this.plugin.settings.command.trim();
+    return this.getRuntimeLabel(this.runningRuntimeId);
   }
   restartClaudeProcess() {
-    const targetRuntime = this.plugin.settings.runtime;
-    if (!this.processHandle) {
-      void this.startClaudeProcess(targetRuntime);
+    const target = this.getSelectedRuntime();
+    if (!target) {
+      void this.startClaudeProcess();
       return;
     }
-    this.pendingStartRuntime = targetRuntime;
-    this.writeSystemLine(`[Restart requested: ${this.getRuntimeLabel(targetRuntime)}]`);
+    if (!this.processHandle) {
+      void this.startClaudeProcess(target.id);
+      return;
+    }
+    this.pendingStartRuntimeId = target.id;
+    this.writeSystemLine(`[Restart requested: ${target.name}]`);
     this.stopClaudeProcess(true);
   }
   resetTerminalDisplay() {
@@ -9615,13 +9727,21 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.terminal.reset();
     (_a5 = this.fitAddon) == null ? void 0 : _a5.fit();
   }
-  setRuntime(runtime) {
-    if (this.plugin.settings.runtime === runtime) {
+  setRuntime(runtimeId) {
+    if (!runtimeId) {
       return;
     }
-    this.plugin.settings.runtime = runtime;
+    const exists = this.plugin.settings.runtimes.some((r) => r.id === runtimeId);
+    if (!exists) {
+      this.refreshRuntimeSelect();
+      return;
+    }
+    if (this.plugin.settings.selectedRuntimeId === runtimeId) {
+      return;
+    }
+    this.plugin.settings.selectedRuntimeId = runtimeId;
     void this.plugin.saveSettings();
-    this.updateRuntimeButtons();
+    this.refreshRuntimeSelect();
     const selectedLabel = this.getRuntimeLabel();
     this.writeSystemLine(`[Runtime selected: ${selectedLabel}]`);
     if (this.processHandle) {
@@ -9634,13 +9754,6 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       return;
     }
     this.setStatus(`${selectedLabel} selected`);
-  }
-  updateRuntimeButtons() {
-    if (!this.runtimeButtons) {
-      return;
-    }
-    this.runtimeButtons.claude.toggleClass("is-active", this.plugin.settings.runtime === "claude");
-    this.runtimeButtons.codex.toggleClass("is-active", this.plugin.settings.runtime === "codex");
   }
   insertActiveFileMention() {
     var _a5;
@@ -9711,10 +9824,27 @@ var ClaudeCliPlugin = class extends import_obsidian.Plugin {
     workspace.revealLeaf(leaf);
   }
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    var _a5;
+    const raw = (_a5 = await this.loadData()) != null ? _a5 : {};
+    const { runtimes, selectedRuntimeId } = migrateRuntimeSettings(raw, cloneDefaultRuntimes());
+    this.settings = {
+      runtimes,
+      selectedRuntimeId,
+      autoRestartOnRuntimeSwitch: typeof raw.autoRestartOnRuntimeSwitch === "boolean" ? raw.autoRestartOnRuntimeSwitch : DEFAULT_SETTINGS.autoRestartOnRuntimeSwitch,
+      autoStart: typeof raw.autoStart === "boolean" ? raw.autoStart : DEFAULT_SETTINGS.autoStart,
+      nodeExecutable: typeof raw.nodeExecutable === "string" && raw.nodeExecutable.trim() ? raw.nodeExecutable : DEFAULT_SETTINGS.nodeExecutable
+    };
   }
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+  notifyRuntimesChanged() {
+    this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE).forEach((leaf) => {
+      const view = leaf.view;
+      if (view instanceof ClaudeCliView) {
+        view.refreshRuntimeSelect();
+      }
+    });
   }
 };
 var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
@@ -9731,35 +9861,94 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
       cls: "setting-item-description"
     });
     containerEl.createEl("h3", { text: "Runtime behavior" });
-    new import_obsidian.Setting(containerEl).setName("Default runtime").setDesc("Runtime selected by default when opening the panel (and used by auto-start).").addDropdown(
-      (dropdown) => dropdown.addOption("claude", "Claude").addOption("codex", "Codex").setValue(this.plugin.settings.runtime).onChange(async (value) => {
-        this.plugin.settings.runtime = value === "codex" ? "codex" : "claude";
+    new import_obsidian.Setting(containerEl).setName("Default runtime").setDesc("Runtime selected by default when opening the panel (and used by auto-start).").addDropdown((dropdown) => {
+      const runtimes = this.plugin.settings.runtimes;
+      if (runtimes.length === 0) {
+        dropdown.addOption("", "(no runtime configured)");
+        dropdown.setDisabled(true);
+      } else {
+        for (const runtime of runtimes) {
+          dropdown.addOption(runtime.id, runtime.name || "(unnamed)");
+        }
+        const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
+        dropdown.setValue(
+          validSelection ? this.plugin.settings.selectedRuntimeId : runtimes[0].id
+        );
+      }
+      dropdown.onChange(async (value) => {
+        if (!value) {
+          return;
+        }
+        this.plugin.settings.selectedRuntimeId = value;
         await this.plugin.saveSettings();
-      })
-    );
+        this.plugin.notifyRuntimesChanged();
+      });
+    });
     new import_obsidian.Setting(containerEl).setName("Auto-start").setDesc("Automatically start the selected default runtime when the panel opens.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoStart).onChange(async (value) => {
         this.plugin.settings.autoStart = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Auto-restart on runtime switch").setDesc("Automatically restart the running process when switching Claude/Codex from the toolbar.").addToggle(
+    new import_obsidian.Setting(containerEl).setName("Auto-restart on runtime switch").setDesc("Automatically restart the running process when changing the runtime from the sidebar dropdown.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoRestartOnRuntimeSwitch).onChange(async (value) => {
         this.plugin.settings.autoRestartOnRuntimeSwitch = value;
         await this.plugin.saveSettings();
       })
     );
-    containerEl.createEl("h3", { text: "Commands" });
-    new import_obsidian.Setting(containerEl).setName("Claude command").setDesc("Command used to launch Claude in the embedded terminal.").addText(
-      (text) => text.setPlaceholder("claude").setValue(this.plugin.settings.command).onChange(async (value) => {
-        this.plugin.settings.command = value.trim() || "claude";
+    containerEl.createEl("h3", { text: "Runtimes" });
+    containerEl.createEl("p", {
+      text: "Configure the CLIs that show up in the sidebar dropdown. Each entry needs a display name and a launch command. Add as many as you want.",
+      cls: "setting-item-description"
+    });
+    const runtimesListEl = containerEl.createDiv({ cls: "claude-cli-runtimes-list" });
+    if (this.plugin.settings.runtimes.length === 0) {
+      runtimesListEl.createEl("p", {
+        text: "No runtimes configured yet. Click 'Add runtime' to create one.",
+        cls: "setting-item-description"
+      });
+    }
+    this.plugin.settings.runtimes.forEach((runtime, index) => {
+      const setting = new import_obsidian.Setting(runtimesListEl).setClass("claude-cli-runtime-item");
+      setting.infoEl.detach();
+      setting.addText(
+        (text) => text.setPlaceholder("Name").setValue(runtime.name).onChange(async (value) => {
+          this.plugin.settings.runtimes[index].name = value;
+          await this.plugin.saveSettings();
+          this.plugin.notifyRuntimesChanged();
+        })
+      ).addText((text) => {
+        text.setPlaceholder("Command (e.g. claude, codex --no-alt-screen ...)").setValue(runtime.command).onChange(async (value) => {
+          this.plugin.settings.runtimes[index].command = value;
+          await this.plugin.saveSettings();
+        });
+        text.inputEl.addClass("claude-cli-runtime-command-input");
+      }).addExtraButton(
+        (btn) => btn.setIcon("trash-2").setTooltip("Remove runtime").onClick(async () => {
+          if (this.plugin.settings.runtimes.length <= 1) {
+            new import_obsidian.Notice("Keep at least one runtime configured.", 4e3);
+            return;
+          }
+          const removed = this.plugin.settings.runtimes.splice(index, 1)[0];
+          if (this.plugin.settings.selectedRuntimeId === removed.id) {
+            this.plugin.settings.selectedRuntimeId = this.plugin.settings.runtimes[0].id;
+          }
+          await this.plugin.saveSettings();
+          this.plugin.notifyRuntimesChanged();
+          this.display();
+        })
+      );
+    });
+    new import_obsidian.Setting(containerEl).addButton(
+      (btn) => btn.setButtonText("Add runtime").setIcon("plus").onClick(async () => {
+        this.plugin.settings.runtimes.push({
+          id: defaultGenerateRuntimeId(),
+          name: "New runtime",
+          command: ""
+        });
         await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian.Setting(containerEl).setName("Codex command").setDesc("Command used to launch Codex in the embedded terminal.").addText(
-      (text) => text.setPlaceholder(DEFAULT_SETTINGS.codexCommand).setValue(this.plugin.settings.codexCommand).onChange(async (value) => {
-        this.plugin.settings.codexCommand = value.trim() || DEFAULT_SETTINGS.codexCommand;
-        await this.plugin.saveSettings();
+        this.plugin.notifyRuntimesChanged();
+        this.display();
       })
     );
     containerEl.createEl("h3", { text: "Advanced" });

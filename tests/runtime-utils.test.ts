@@ -3,9 +3,12 @@ import {
   detectNodeExecutable,
   formatActiveFileMention,
   getLaunchSpecs,
+  isCodexLikeCommand,
   mergePathEntries,
+  migrateRuntimeSettings,
   resolveExecutableInPath,
-  resolvePluginDir
+  resolvePluginDir,
+  type CliRuntimeConfig
 } from "../runtime-utils";
 
 describe("resolvePluginDir", () => {
@@ -126,5 +129,105 @@ describe("formatActiveFileMention", () => {
 
   it("trims surrounding spaces from file name", () => {
     expect(formatActiveFileMention("  monfichier.md  ")).toBe("@monfichier.md ");
+  });
+});
+
+describe("isCodexLikeCommand", () => {
+  it("matches bare codex", () => {
+    expect(isCodexLikeCommand("codex")).toBe(true);
+  });
+
+  it("matches codex with arguments", () => {
+    expect(isCodexLikeCommand("codex --no-alt-screen")).toBe(true);
+  });
+
+  it("trims surrounding whitespace before matching", () => {
+    expect(isCodexLikeCommand("  codex  ")).toBe(true);
+  });
+
+  it("does not match commands that merely contain codex", () => {
+    expect(isCodexLikeCommand("my-codex-wrapper")).toBe(false);
+    expect(isCodexLikeCommand("/usr/local/bin/codex")).toBe(false);
+  });
+
+  it("returns false for non-codex commands and empty values", () => {
+    expect(isCodexLikeCommand("claude")).toBe(false);
+    expect(isCodexLikeCommand("")).toBe(false);
+    expect(isCodexLikeCommand(undefined)).toBe(false);
+    expect(isCodexLikeCommand(null)).toBe(false);
+  });
+});
+
+describe("migrateRuntimeSettings", () => {
+  const defaults: CliRuntimeConfig[] = [
+    { id: "claude", name: "Claude", command: "claude" },
+    { id: "codex", name: "Codex", command: "codex --no-alt-screen" }
+  ];
+  const stableId = () => "generated-id";
+
+  it("returns defaults when no data is stored", () => {
+    const result = migrateRuntimeSettings(null, defaults, stableId);
+    expect(result.runtimes).toEqual(defaults);
+    expect(result.selectedRuntimeId).toBe("claude");
+  });
+
+  it("migrates legacy claude/codex command fields and preserves selected runtime", () => {
+    const result = migrateRuntimeSettings(
+      {
+        command: "  claude --print  ",
+        codexCommand: "codex --foo",
+        runtime: "codex"
+      },
+      defaults,
+      stableId
+    );
+    expect(result.runtimes).toEqual([
+      { id: "claude", name: "Claude", command: "claude --print" },
+      { id: "codex", name: "Codex", command: "codex --foo" }
+    ]);
+    expect(result.selectedRuntimeId).toBe("codex");
+  });
+
+  it("ignores invalid legacy runtime values and falls back to first runtime", () => {
+    const result = migrateRuntimeSettings(
+      { runtime: "openai" },
+      defaults,
+      stableId
+    );
+    expect(result.selectedRuntimeId).toBe("claude");
+  });
+
+  it("keeps already migrated data intact and clamps invalid selectedRuntimeId", () => {
+    const stored = {
+      runtimes: [
+        { id: "abc", name: "A", command: "a" },
+        { id: "def", name: "D", command: "d" }
+      ],
+      selectedRuntimeId: "ghost"
+    };
+    const result = migrateRuntimeSettings(stored, defaults, stableId);
+    expect(result.runtimes).toEqual(stored.runtimes);
+    expect(result.selectedRuntimeId).toBe("abc");
+  });
+
+  it("regenerates missing or duplicated ids when sanitizing migrated data", () => {
+    let counter = 0;
+    const generateId = () => `gen-${++counter}`;
+    const result = migrateRuntimeSettings(
+      {
+        runtimes: [
+          { id: "shared", name: "First", command: "first" },
+          { id: "shared", name: "Second", command: "second" },
+          { name: "Third", command: "third" }
+        ],
+        selectedRuntimeId: "shared"
+      },
+      defaults,
+      generateId
+    );
+    const ids = result.runtimes.map((r) => r.id);
+    expect(new Set(ids).size).toBe(3);
+    expect(result.runtimes[0].id).toBe("shared");
+    expect(result.selectedRuntimeId).toBe("shared");
   });
 });

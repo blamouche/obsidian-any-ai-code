@@ -7,8 +7,109 @@ export interface PathApi {
   join(...parts: string[]): string;
 }
 
+export interface CliRuntimeConfig {
+  id: string;
+  name: string;
+  command: string;
+}
+
+export interface LegacyRuntimeSettings {
+  command?: unknown;
+  codexCommand?: unknown;
+  runtime?: unknown;
+  runtimes?: unknown;
+  selectedRuntimeId?: unknown;
+}
+
 export function formatActiveFileMention(fileName: string): string {
   return `@${fileName.trim()} `;
+}
+
+export function isCodexLikeCommand(command: string | undefined | null): boolean {
+  if (typeof command !== "string") {
+    return false;
+  }
+  const trimmed = command.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return trimmed === "codex" || /^codex(\s|$)/.test(trimmed);
+}
+
+export function migrateRuntimeSettings(
+  raw: LegacyRuntimeSettings | null | undefined,
+  defaults: CliRuntimeConfig[],
+  generateId: () => string = defaultGenerateRuntimeId
+): { runtimes: CliRuntimeConfig[]; selectedRuntimeId: string } {
+  const fallbackDefaults = defaults.length > 0
+    ? defaults.map((d) => ({ ...d }))
+    : [{ id: generateId(), name: "Default", command: "" }];
+
+  if (raw && Array.isArray(raw.runtimes)) {
+    const sanitized = sanitizeRuntimes(raw.runtimes, generateId);
+    if (sanitized.length > 0) {
+      const selected =
+        typeof raw.selectedRuntimeId === "string" &&
+        sanitized.some((r) => r.id === raw.selectedRuntimeId)
+          ? raw.selectedRuntimeId
+          : sanitized[0].id;
+      return { runtimes: sanitized, selectedRuntimeId: selected };
+    }
+  }
+
+  const runtimes = fallbackDefaults;
+  if (raw && typeof raw.command === "string" && raw.command.trim()) {
+    const claude = runtimes.find((r) => r.id === "claude");
+    if (claude) {
+      claude.command = raw.command.trim();
+    }
+  }
+  if (raw && typeof raw.codexCommand === "string" && raw.codexCommand.trim()) {
+    const codex = runtimes.find((r) => r.id === "codex");
+    if (codex) {
+      codex.command = raw.codexCommand.trim();
+    }
+  }
+
+  const legacyRuntime =
+    typeof raw?.runtime === "string" && (raw.runtime === "claude" || raw.runtime === "codex")
+      ? raw.runtime
+      : undefined;
+  const selectedRuntimeId =
+    legacyRuntime && runtimes.some((r) => r.id === legacyRuntime)
+      ? legacyRuntime
+      : runtimes[0].id;
+
+  return { runtimes, selectedRuntimeId };
+}
+
+function sanitizeRuntimes(
+  raw: unknown[],
+  generateId: () => string
+): CliRuntimeConfig[] {
+  const result: CliRuntimeConfig[] = [];
+  const seenIds = new Set<string>();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const candidate = entry as Partial<CliRuntimeConfig>;
+    const name = typeof candidate.name === "string" ? candidate.name : "";
+    const command = typeof candidate.command === "string" ? candidate.command : "";
+    let id = typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : generateId();
+    while (seenIds.has(id)) {
+      id = generateId();
+    }
+    seenIds.add(id);
+    result.push({ id, name, command });
+  }
+  return result;
+}
+
+export function defaultGenerateRuntimeId(): string {
+  const cryptoApi = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (cryptoApi && typeof cryptoApi.randomUUID === "function") {
+    return cryptoApi.randomUUID();
+  }
+  return `runtime-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function resolvePluginDir(

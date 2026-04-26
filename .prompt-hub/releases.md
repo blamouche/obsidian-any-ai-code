@@ -1,5 +1,14 @@
 # Releases
 
+## 0.1.28 - 2026-04-26
+- Replaced the hardcoded Claude/Codex runtime switch with a customizable, unbounded list of CLI runtimes configurable from the settings panel.
+- Each runtime entry stores a display name and a launch command; users can add new runtimes with `Add runtime` and remove unused ones (a single runtime is always kept).
+- The sidebar toolbar now exposes a dropdown populated with the configured runtimes (replacing the previous Claude/Codex toggle buttons).
+- Added a migration path that converts legacy `command`, `codexCommand`, and `runtime` settings into the new `runtimes` + `selectedRuntimeId` shape on first load.
+- The Codex-specific terminal workarounds (no-color env, terminal reset) now trigger by command shape (`isCodexLikeCommand`) instead of a hardcoded id, so they keep working for any user-renamed Codex entry.
+- README updated to document the new settings shape and runtime dropdown behavior.
+- Added unit tests for the new migration helper and codex-like command detection (22 tests total).
+
 ## 0.1.27 - 2026-04-26
 - Added a project banner image at the top of the README (`img/banner.png`).
 

@@ -1,10 +1,10 @@
 {
   "id": "obsidian-any-ai-code",
-  "name": "Any AI Code",
+  "name": "Any AI CLI",
   "version": "0.1.26",
   "minAppVersion": "1.5.0",
-  "description": "Open Claude Code CLI in a right sidebar view.",
-  "author": "",
-  "authorUrl": "",
+  "description": "Open AI CLI in a right sidebar view.",
+  "author": "Benoit Lamouche",
+  "authorUrl": "https://lamouche.fr",
   "isDesktopOnly": true
 }

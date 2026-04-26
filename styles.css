@@ -44,21 +44,67 @@
   stroke-width: 2.1;
 }
 
-.claude-cli-runtime-toggle {
+.claude-cli-runtime-picker {
   display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--interactive-normal);
+  border-radius: 6px;
+  padding: 2px 6px 2px 8px;
+}
+
+.claude-cli-runtime-picker-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.claude-cli-runtime-picker-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.1;
+}
+
+.claude-cli-runtime-select {
+  border: 0;
+  background: transparent;
+  color: var(--text-normal);
+  font: inherit;
+  padding: 4px 4px 4px 0;
+  cursor: pointer;
+  outline: none;
+}
+
+.claude-cli-runtime-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.claude-cli-runtimes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.claude-cli-runtime-item {
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
-  overflow: hidden;
+  padding: 6px 8px;
+  background: var(--background-secondary);
 }
 
-.claude-cli-runtime-toggle button {
-  border: 0;
-  border-radius: 0;
+.claude-cli-runtime-item .setting-item-control {
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
 }
 
-.claude-cli-runtime-toggle button.is-active {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
+.claude-cli-runtime-command-input {
+  flex: 1 1 240px;
+  min-width: 200px;
 }
 
 .claude-cli-status {
