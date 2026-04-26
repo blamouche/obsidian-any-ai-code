@@ -1,7 +1,7 @@
 {
   "id": "obsidian-any-ai-code",
   "name": "Any AI CLI",
-  "version": "0.1.33",
+  "version": "0.1.34",
   "minAppVersion": "1.5.0",
   "description": "Run AI coding CLIs like Claude Code or Codex from a right sidebar terminal panel.",
   "author": "Benoit Lamouche",
