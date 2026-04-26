@@ -3,7 +3,7 @@
   "name": "Any AI CLI",
   "version": "0.1.33",
   "minAppVersion": "1.5.0",
-  "description": "Open AI CLI in a right sidebar view.",
+  "description": "Run AI coding CLIs like Claude Code or Codex from a right sidebar terminal panel.",
   "author": "Benoit Lamouche",
   "authorUrl": "https://lamouche.fr",
   "isDesktopOnly": true

@@ -1,5 +1,13 @@
 # Releases
 
+## 0.1.34 - 2026-04-26
+- Aligned the plugin with the Obsidian community plugin submission guidelines:
+  - Added a top-level `LICENSE` file (MIT) so the license is discoverable independently of `package.json`.
+  - Removed the `leaf.detach()` calls from `onunload` (Obsidian preserves leaf state across reloads/updates per the plugin guidelines).
+  - Reworked the settings tab to use `new Setting(...).setHeading()` instead of raw `<h2>`/`<h3>` elements; dropped the redundant top-level plugin-name heading and the heading on the first general-settings section per the UI text guidelines.
+  - Switched the release workflow to publish drafts (`draft: true`), matching the official Obsidian release guide so the author reviews release notes before going live.
+  - Tightened the `manifest.json` description to a more action-oriented, unambiguous statement: `Run AI coding CLIs like Claude Code or Codex from a right sidebar terminal panel.`
+
 ## 0.1.33 - 2026-04-26
 - Added a blue highlight accent to `@Active file` and `@Active folder` buttons (resting border tint + icon color, solid blue fill with white text/icon on hover) so the file-context actions read as a paired group distinct from the green Start and red Stop.
 

@@ -9853,7 +9853,6 @@ var ClaudeCliPlugin = class extends import_obsidian.Plugin {
     this.addSettingTab(new ClaudeCliSettingTab(this.app, this));
   }
   async onunload() {
-    this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE).forEach((leaf) => leaf.detach());
   }
   async activateView() {
     const { workspace } = this.app;
@@ -9899,12 +9898,6 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "CLI AI Assistant" });
-    containerEl.createEl("p", {
-      text: "Configure runtime behavior, launch commands, and advanced execution options.",
-      cls: "setting-item-description"
-    });
-    containerEl.createEl("h3", { text: "Runtime behavior" });
     new import_obsidian.Setting(containerEl).setName("Default runtime").setDesc("Runtime selected by default when opening the panel (and used by auto-start).").addDropdown((dropdown) => {
       const runtimes = this.plugin.settings.runtimes;
       if (runtimes.length === 0) {
@@ -9940,7 +9933,7 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    containerEl.createEl("h3", { text: "Runtimes" });
+    new import_obsidian.Setting(containerEl).setName("Runtimes").setHeading();
     containerEl.createEl("p", {
       text: "Configure the CLIs that show up in the sidebar dropdown. Each entry needs a display name and a launch command. Add as many as you want.",
       cls: "setting-item-description"
@@ -9995,7 +9988,7 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
         this.display();
       })
     );
-    containerEl.createEl("h3", { text: "Advanced" });
+    new import_obsidian.Setting(containerEl).setName("Advanced").setHeading();
     new import_obsidian.Setting(containerEl).setName("Node executable").setDesc("Optional override for PTY proxy Node runtime. Leave as 'auto' for automatic detection.").addText(
       (text) => text.setPlaceholder("auto").setValue(this.plugin.settings.nodeExecutable).onChange(async (value) => {
         this.plugin.settings.nodeExecutable = value.trim() || "auto";

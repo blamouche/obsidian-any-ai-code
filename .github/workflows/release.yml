@@ -58,6 +58,9 @@ jobs:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # Per Obsidian release guide, releases are created as drafts so the
+          # author can review release notes before publishing.
+          draft: true
           body: |
             ## Install
 

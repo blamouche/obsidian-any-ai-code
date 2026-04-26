@@ -511,7 +511,8 @@ export default class ClaudeCliPlugin extends Plugin {
   }
 
   async onunload(): Promise<void> {
-    this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE).forEach((leaf) => leaf.detach());
+    // Per Obsidian plugin guidelines, do not detach leaves on unload —
+    // Obsidian preserves leaf state across reloads/updates.
   }
 
   async activateView(): Promise<void> {
@@ -574,14 +575,6 @@ class ClaudeCliSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "CLI AI Assistant" });
-    containerEl.createEl("p", {
-      text: "Configure runtime behavior, launch commands, and advanced execution options.",
-      cls: "setting-item-description"
-    });
-
-    containerEl.createEl("h3", { text: "Runtime behavior" });
-
     new Setting(containerEl)
       .setName("Default runtime")
       .setDesc("Runtime selected by default when opening the panel (and used by auto-start).")
@@ -633,7 +626,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.createEl("h3", { text: "Runtimes" });
+    new Setting(containerEl).setName("Runtimes").setHeading();
     containerEl.createEl("p", {
       text: "Configure the CLIs that show up in the sidebar dropdown. Each entry needs a display name and a launch command. Add as many as you want.",
       cls: "setting-item-description"
@@ -708,7 +701,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
         })
     );
 
-    containerEl.createEl("h3", { text: "Advanced" });
+    new Setting(containerEl).setName("Advanced").setHeading();
 
     new Setting(containerEl)
       .setName("Node executable")
