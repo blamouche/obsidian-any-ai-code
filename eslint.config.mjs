@@ -10,10 +10,15 @@ export default defineConfig([
       "dist/**",
       "__pycache__/**",
       "*.config.mjs",
-      "*.config.js"
+      "*.config.js",
+      "package.json",
+      "package-lock.json",
+      "tsconfig.json",
+      "versions.json",
+      ".prompt-hub/**"
     ]
   },
-  ...obsidianmd.configs.recommended,
+  ...obsidianmd.configs.recommendedWithLocalesEn,
   {
     files: ["**/*.ts"],
     languageOptions: {

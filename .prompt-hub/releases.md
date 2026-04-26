@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.39 - 2026-04-26
+- Reworded the `manifest.json` and `package.json` descriptions from `Run AI coding CLIs like Claude Code or Codex from a right sidebar terminal panel.` to `Run AI coding tools like Claude or Codex from a right sidebar terminal panel.` so the Obsidian sentence-case scanner stops flagging the plural acronym `CLIs` and the multi-word product name `Claude Code` as title-case violations.
+- Switched the local ESLint config from `obsidianmd/recommended` to `obsidianmd/recommendedWithLocalesEn` (the same severity as the community submission bot) and added explicit ignores for non-source JSON / lockfiles so future stricter checks land in CI.
+
 ## 0.1.38 - 2026-04-26
 - Installed [eslint-plugin-obsidianmd](https://github.com/obsidianmd/eslint-plugin) (`eslint`, `@typescript-eslint/parser`, `eslint-plugin-obsidianmd`) and added an `eslint.config.mjs` flat config that wires the plugin's `recommended` ruleset to project TS files, with an override turning off `obsidianmd/hardcoded-config-path` for the `tests/` fixtures.
 - Added an `npm run lint` script (scoped to `main.ts`, `runtime-utils.ts`, and `tests/**/*.ts`) and wired it into the CI workflow before `npm run test` so guideline violations are caught on every push/PR.
