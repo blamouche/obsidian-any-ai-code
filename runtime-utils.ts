@@ -25,6 +25,18 @@ export function formatActiveFileMention(fileName: string): string {
   return `@${fileName.trim()} `;
 }
 
+export function formatActiveFolderMention(filePath: string): string {
+  const trimmed = filePath.trim();
+  if (!trimmed) {
+    return "@./ ";
+  }
+  const lastSlash = trimmed.lastIndexOf("/");
+  if (lastSlash <= 0) {
+    return "@./ ";
+  }
+  return `@${trimmed.slice(0, lastSlash)}/ `;
+}
+
 export function isCodexLikeCommand(command: string | undefined | null): boolean {
   if (typeof command !== "string") {
     return false;

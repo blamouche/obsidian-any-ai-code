@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.32 - 2026-04-26
+- Added an `@Active folder` button on the sidebar's secondary row that inserts the parent folder of the active file (vault-relative) into the running CLI.
+- Active files at the vault root insert `@./ ` (current working directory marker) so the action remains useful regardless of file location.
+- Added unit tests covering nested, deeply-nested, root, empty, and whitespace-padded paths (27 tests total).
+
 ## 0.1.31 - 2026-04-26
 - Fixed `Stop` hover unreadable text by switching to a solid red background with white text/icon (instead of red text on a translucent red background).
 - Replaced the native dropdown chrome on the runtime picker (which rendered as a black/white control on macOS) with a styled wrapper that matches the toolbar buttons, using `appearance: none` and a custom Lucide chevron icon.

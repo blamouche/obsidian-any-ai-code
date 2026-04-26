@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectNodeExecutable,
   formatActiveFileMention,
+  formatActiveFolderMention,
   getLaunchSpecs,
   isCodexLikeCommand,
   mergePathEntries,
@@ -129,6 +130,29 @@ describe("formatActiveFileMention", () => {
 
   it("trims surrounding spaces from file name", () => {
     expect(formatActiveFileMention("  monfichier.md  ")).toBe("@monfichier.md ");
+  });
+});
+
+describe("formatActiveFolderMention", () => {
+  it("returns the immediate parent folder for nested files", () => {
+    expect(formatActiveFolderMention("Notes/Daily/2026-04-26.md")).toBe("@Notes/Daily/ ");
+  });
+
+  it("preserves multi-level folder paths", () => {
+    expect(formatActiveFolderMention("a/b/c/d.md")).toBe("@a/b/c/ ");
+  });
+
+  it("falls back to the current directory marker when the file is at vault root", () => {
+    expect(formatActiveFolderMention("rootfile.md")).toBe("@./ ");
+  });
+
+  it("falls back to the current directory marker for empty input", () => {
+    expect(formatActiveFolderMention("")).toBe("@./ ");
+    expect(formatActiveFolderMention("   ")).toBe("@./ ");
+  });
+
+  it("trims surrounding spaces before computing the parent", () => {
+    expect(formatActiveFolderMention("  Notes/file.md  ")).toBe("@Notes/ ");
   });
 });
 

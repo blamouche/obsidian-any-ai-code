@@ -12,7 +12,7 @@ Use Claude Code directly inside your active Obsidian vault without leaving Obsid
 
 - Dedicated CLI view in the right sidebar
 - Embedded terminal (xterm)
-- Quick actions: `Start`, `Stop`, `Restart`, `Clear`, `@Active file`
+- Quick actions: `Start`, `Stop`, `Restart`, `Clear`, `@Active file`, `@Active folder`
 - **Customizable runtime list** — configure as many CLI runtimes as you want (Claude and Codex are pre-populated; add any others from settings) and switch between them via a dropdown in the sidebar
 - Launches the selected runtime in the **current active vault folder**
 - Visible UI status (`Status: ...`)

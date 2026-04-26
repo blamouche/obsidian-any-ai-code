@@ -6,6 +6,7 @@ import {
   defaultGenerateRuntimeId,
   detectNodeExecutable,
   formatActiveFileMention,
+  formatActiveFolderMention,
   isCodexLikeCommand,
   mergePathEntries as mergePathEntriesForPlatform,
   migrateRuntimeSettings,
@@ -108,7 +109,9 @@ class ClaudeCliView extends ItemView {
 
     const secondaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
     const mentionBtn = secondaryRowEl.createEl("button", { text: "@Active file" });
+    const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@Active folder" });
     this.setButtonIcon(mentionBtn, "file-plus", "@Active file");
+    this.setButtonIcon(folderMentionBtn, "folder-plus", "@Active folder");
 
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
 
@@ -117,6 +120,7 @@ class ClaudeCliView extends ItemView {
     restartBtn.addEventListener("click", () => this.restartClaudeProcess());
     clearBtn.addEventListener("click", () => this.terminal?.clear());
     mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
+    folderMentionBtn.addEventListener("click", () => this.insertActiveFolderMention());
     this.runtimeSelect.addEventListener("change", () => {
       if (this.runtimeSelect) {
         this.setRuntime(this.runtimeSelect.value);
@@ -436,6 +440,29 @@ class ClaudeCliView extends ItemView {
     }
 
     const mention = formatActiveFileMention(activeFile.path);
+    this.processHandle.write(mention);
+    this.terminal?.focus();
+    this.setStatus(`Inserted ${mention.trim()}`);
+  }
+
+  private insertActiveFolderMention(): void {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      const message = "No active file detected.";
+      this.writeSystemLine(`[${message}]`);
+      this.setStatus(message);
+      new Notice(message, 4000);
+      return;
+    }
+    if (!this.processHandle) {
+      const message = `${this.getRuntimeLabel()} process is not running. Start it before inserting a folder mention.`;
+      this.writeSystemLine(`[${message}]`);
+      this.setStatus(message);
+      new Notice(message, 5000);
+      return;
+    }
+
+    const mention = formatActiveFolderMention(activeFile.path);
     this.processHandle.write(mention);
     this.terminal?.focus();
     this.setStatus(`Inserted ${mention.trim()}`);

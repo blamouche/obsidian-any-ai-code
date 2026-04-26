@@ -9289,6 +9289,17 @@ var o = class {
 function formatActiveFileMention(fileName) {
   return `@${fileName.trim()} `;
 }
+function formatActiveFolderMention(filePath) {
+  const trimmed = filePath.trim();
+  if (!trimmed) {
+    return "@./ ";
+  }
+  const lastSlash = trimmed.lastIndexOf("/");
+  if (lastSlash <= 0) {
+    return "@./ ";
+  }
+  return `@${trimmed.slice(0, lastSlash)}/ `;
+}
 function isCodexLikeCommand(command) {
   if (typeof command !== "string") {
     return false;
@@ -9482,7 +9493,9 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     stopBtn.addClass("claude-cli-btn-danger");
     const secondaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
     const mentionBtn = secondaryRowEl.createEl("button", { text: "@Active file" });
+    const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@Active folder" });
     this.setButtonIcon(mentionBtn, "file-plus", "@Active file");
+    this.setButtonIcon(folderMentionBtn, "folder-plus", "@Active folder");
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
     startBtn.addEventListener("click", () => this.startClaudeProcess());
     stopBtn.addEventListener("click", () => this.stopClaudeProcess());
@@ -9492,6 +9505,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       return (_a5 = this.terminal) == null ? void 0 : _a5.clear();
     });
     mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
+    folderMentionBtn.addEventListener("click", () => this.insertActiveFolderMention());
     this.runtimeSelect.addEventListener("change", () => {
       if (this.runtimeSelect) {
         this.setRuntime(this.runtimeSelect.value);
@@ -9779,6 +9793,28 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       return;
     }
     const mention = formatActiveFileMention(activeFile.path);
+    this.processHandle.write(mention);
+    (_a5 = this.terminal) == null ? void 0 : _a5.focus();
+    this.setStatus(`Inserted ${mention.trim()}`);
+  }
+  insertActiveFolderMention() {
+    var _a5;
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      const message = "No active file detected.";
+      this.writeSystemLine(`[${message}]`);
+      this.setStatus(message);
+      new import_obsidian.Notice(message, 4e3);
+      return;
+    }
+    if (!this.processHandle) {
+      const message = `${this.getRuntimeLabel()} process is not running. Start it before inserting a folder mention.`;
+      this.writeSystemLine(`[${message}]`);
+      this.setStatus(message);
+      new import_obsidian.Notice(message, 5e3);
+      return;
+    }
+    const mention = formatActiveFolderMention(activeFile.path);
     this.processHandle.write(mention);
     (_a5 = this.terminal) == null ? void 0 : _a5.focus();
     this.setStatus(`Inserted ${mention.trim()}`);
