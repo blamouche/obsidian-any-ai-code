@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.31 - 2026-04-26
+- Fixed `Stop` hover unreadable text by switching to a solid red background with white text/icon (instead of red text on a translucent red background).
+- Replaced the native dropdown chrome on the runtime picker (which rendered as a black/white control on macOS) with a styled wrapper that matches the toolbar buttons, using `appearance: none` and a custom Lucide chevron icon.
+- Switched the `Start` button accent from the Obsidian theme accent to a green color (`var(--color-green)` with `#16a34a` fallback) for a clearer "go" semantic, including hover fill and resting border tint.
+
 ## 0.1.30 - 2026-04-26
 - Polished sidebar toolbar buttons: smoother hover/active transitions, subtle shadow on hover, focus-visible outline ring, dimmed disabled state, and icon color shift on hover.
 - Added semantic accents — `Start` highlights with the Obsidian accent color on hover (primary action), `Stop` highlights with the error color on hover (destructive action).

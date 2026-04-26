@@ -88,21 +88,25 @@
 }
 
 .claude-cli-toolbar .claude-cli-btn-primary {
-  border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--background-modifier-border));
+  border-color: color-mix(in srgb, var(--color-green, #16a34a) 45%, var(--background-modifier-border));
 }
 
 .claude-cli-toolbar .claude-cli-btn-primary .claude-cli-btn-icon {
-  color: var(--interactive-accent);
+  color: var(--color-green, #16a34a);
 }
 
 .claude-cli-toolbar .claude-cli-btn-primary:hover {
-  background: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-  color: var(--text-on-accent);
+  background: var(--color-green, #16a34a);
+  border-color: var(--color-green, #16a34a);
+  color: #ffffff;
 }
 
 .claude-cli-toolbar .claude-cli-btn-primary:hover .claude-cli-btn-icon {
-  color: var(--text-on-accent);
+  color: #ffffff;
+}
+
+.claude-cli-toolbar .claude-cli-btn-danger {
+  border-color: color-mix(in srgb, var(--text-error, #d9534f) 35%, var(--background-modifier-border));
 }
 
 .claude-cli-toolbar .claude-cli-btn-danger .claude-cli-btn-icon {
@@ -110,13 +114,13 @@
 }
 
 .claude-cli-toolbar .claude-cli-btn-danger:hover {
-  background: var(--background-modifier-error, rgba(217, 83, 79, 0.15));
+  background: var(--text-error, #d9534f);
   border-color: var(--text-error, #d9534f);
-  color: var(--text-error, #d9534f);
+  color: #ffffff;
 }
 
 .claude-cli-toolbar .claude-cli-btn-danger:hover .claude-cli-btn-icon {
-  color: var(--text-error, #d9534f);
+  color: #ffffff;
 }
 
 .claude-cli-runtime-picker {
@@ -158,20 +162,43 @@
 }
 
 .claude-cli-runtime-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   border: 0;
   background: transparent;
+  background-image: none;
   color: var(--text-normal);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  padding: 3px 4px 3px 0;
+  padding: 3px 0;
   cursor: pointer;
   outline: none;
+  box-shadow: none;
 }
 
 .claude-cli-runtime-select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.claude-cli-runtime-picker-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.claude-cli-runtime-picker-chevron svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.1;
+}
+
+.claude-cli-runtime-picker:hover .claude-cli-runtime-picker-chevron {
+  color: var(--text-normal);
 }
 
 .claude-cli-runtimes-list {

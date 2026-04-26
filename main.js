@@ -9468,6 +9468,8 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.runtimeSelect = runtimePickerEl.createEl("select", { cls: "claude-cli-runtime-select" });
     this.runtimeSelect.setAttribute("aria-label", "Select runtime");
     this.refreshRuntimeSelect();
+    const runtimeChevronEl = runtimePickerEl.createSpan({ cls: "claude-cli-runtime-picker-chevron" });
+    (0, import_obsidian.setIcon)(runtimeChevronEl, "chevron-down");
     const startBtn = primaryRowEl.createEl("button", { text: "Start" });
     const stopBtn = primaryRowEl.createEl("button", { text: "Stop" });
     const restartBtn = primaryRowEl.createEl("button", { text: "Restart" });
