@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.36 - 2026-04-26
+- Renamed plugin id from `obsidian-any-ai-cli` to `any-ai-cli` after the Obsidian community submission bot rejected the previous id (the official guideline asks plugins not to include `obsidian` in their id since the id is used as the plugin folder name and brevity helps sorting). The id `any-ai-cli` is verified free in the public `community-plugins.json`.
+- Updated all id-referencing files: `manifest.json`, `package.json`, `package-lock.json`, `.github/workflows/release.yml` (`PLUGIN_ID`), and the README install paths and zip filename mentions.
+- Existing personal installs need to rename their plugin folder from `.obsidian/plugins/obsidian-any-ai-cli` (or `obsidian-any-ai-code`) to `.obsidian/plugins/any-ai-cli`.
+
 ## 0.1.35 - 2026-04-26
 - Renamed the plugin id from `obsidian-any-ai-code` to `obsidian-any-ai-cli` so it matches the rebranded `Any AI CLI` plugin name (and matches the entry queued for the Obsidian community store submission).
 - Updated `manifest.json` `id`, `package.json` `name`, the release workflow `PLUGIN_ID` env var, and every install path / release zip filename mentioned in the README.
