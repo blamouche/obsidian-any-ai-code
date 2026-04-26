@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.41 - 2026-04-26
+- Capitalized every UI fallback label inside logical-OR expressions (`runtime.name || "(unnamed)"` family) so they pass the bot's stricter sentence-case scan: `(unnamed)` → `(Unnamed)`, `(unnamed runtime)` → `(Unnamed runtime)`, `(no runtime)` → `(No runtime)`. Confirmed via AST walk that the local `obsidianmd/ui/sentence-case` rule's `getStringFromNode` only inspects direct Literals and skips LogicalExpression operands, which is why earlier local lint runs missed these — the bot likely walks fallback expressions.
+- Plugin manifest bumped to 0.1.40.
+
 ## 0.1.40 - 2026-04-26
 - Refreshed `README.md` so the intro, goal, features list, requirements, usage walkthrough, and settings reference reflect the multi-runtime model (the README still presented the plugin as Claude-Code-only).
 - Renamed the README title from `Obsidian Any AI Code` to `Any AI CLI` to match the manifest name and updated the Community Plugins enable path accordingly.

@@ -9580,7 +9580,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     }
     this.runtimeSelect.disabled = false;
     for (const runtime of runtimes) {
-      const opt = this.runtimeSelect.createEl("option", { text: runtime.name || "(unnamed)" });
+      const opt = this.runtimeSelect.createEl("option", { text: runtime.name || "(Unnamed)" });
       opt.value = runtime.id;
     }
     const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
@@ -9610,7 +9610,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
       new import_obsidian.Notice(message, 6e3);
       return;
     }
-    const targetLabel = targetRuntime.name || "(unnamed runtime)";
+    const targetLabel = targetRuntime.name || "(Unnamed runtime)";
     if (this.processHandle) {
       if (this.runningRuntimeId === targetRuntime.id) {
         this.writeSystemLine(`[${targetLabel} process is already running]`);
@@ -9729,9 +9729,9 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     var _a5;
     if (runtimeId) {
       const match = this.plugin.settings.runtimes.find((r) => r.id === runtimeId);
-      return (match == null ? void 0 : match.name) || "(unnamed runtime)";
+      return (match == null ? void 0 : match.name) || "(Unnamed runtime)";
     }
-    return ((_a5 = this.getSelectedRuntime()) == null ? void 0 : _a5.name) || "(no runtime)";
+    return ((_a5 = this.getSelectedRuntime()) == null ? void 0 : _a5.name) || "(No runtime)";
   }
   getRunningRuntimeLabel() {
     if (!this.runningRuntimeId) {
@@ -9921,7 +9921,7 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
         dropdown.setDisabled(true);
       } else {
         for (const runtime of runtimes) {
-          dropdown.addOption(runtime.id, runtime.name || "(unnamed)");
+          dropdown.addOption(runtime.id, runtime.name || "(Unnamed)");
         }
         const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
         dropdown.setValue(

@@ -1,6 +1,6 @@
 {
   "name": "any-ai-cli",
-  "version": "0.1.39",
+  "version": "0.1.40",
   "description": "Run AI coding tools like Claude or Codex from a right sidebar terminal panel.",
   "main": "main.js",
   "scripts": {

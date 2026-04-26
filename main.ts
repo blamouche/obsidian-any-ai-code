@@ -192,7 +192,7 @@ class ClaudeCliView extends ItemView {
     }
     this.runtimeSelect.disabled = false;
     for (const runtime of runtimes) {
-      const opt = this.runtimeSelect.createEl("option", { text: runtime.name || "(unnamed)" });
+      const opt = this.runtimeSelect.createEl("option", { text: runtime.name || "(Unnamed)" });
       opt.value = runtime.id;
     }
     const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
@@ -227,7 +227,7 @@ class ClaudeCliView extends ItemView {
       return;
     }
 
-    const targetLabel = targetRuntime.name || "(unnamed runtime)";
+    const targetLabel = targetRuntime.name || "(Unnamed runtime)";
 
     if (this.processHandle) {
       if (this.runningRuntimeId === targetRuntime.id) {
@@ -362,9 +362,9 @@ class ClaudeCliView extends ItemView {
   private getRuntimeLabel(runtimeId?: string): string {
     if (runtimeId) {
       const match = this.plugin.settings.runtimes.find((r) => r.id === runtimeId);
-      return match?.name || "(unnamed runtime)";
+      return match?.name || "(Unnamed runtime)";
     }
-    return this.getSelectedRuntime()?.name || "(no runtime)";
+    return this.getSelectedRuntime()?.name || "(No runtime)";
   }
 
   private getRunningRuntimeLabel(): string {
@@ -593,7 +593,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
           dropdown.setDisabled(true);
         } else {
           for (const runtime of runtimes) {
-            dropdown.addOption(runtime.id, runtime.name || "(unnamed)");
+            dropdown.addOption(runtime.id, runtime.name || "(Unnamed)");
           }
           const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
           dropdown.setValue(
