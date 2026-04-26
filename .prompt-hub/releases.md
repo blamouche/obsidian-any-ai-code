@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.27 - 2026-04-26
+- Added a project banner image at the top of the README (`img/banner.png`).
+
 ## 0.1.26 - 2026-04-25
 - Reworked the README `Install in a Vault` section around the GitHub release zip flow (download zip → unzip into `.obsidian/plugins/` → enable), with the native `node-pty` install demoted to an optional step for best terminal fidelity.
 - Updated the release workflow body template to drop the mandatory `npm install --omit=dev` step (no longer required since 0.1.25 made the native dep optional) and reframed it as an optional enhancement.

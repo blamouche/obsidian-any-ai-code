@@ -1,5 +1,7 @@
 # Obsidian Any AI Code
 
+![Obsidian Any AI Code](img/banner.png)
+
 Obsidian desktop plugin that opens your **local Claude Code CLI** in a right sidebar panel.
 
 ## Goal
