@@ -12,7 +12,7 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     env:
-      PLUGIN_ID: obsidian-any-ai-code
+      PLUGIN_ID: obsidian-any-ai-cli
     steps:
       - name: Checkout
         uses: actions/checkout@v4
