@@ -9,6 +9,13 @@
 
 .claude-cli-toolbar {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.claude-cli-toolbar-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }

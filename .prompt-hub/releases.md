@@ -1,5 +1,8 @@
 # Releases
 
+## 0.1.29 - 2026-04-26
+- Reorganized the sidebar toolbar into two rows: row 1 holds the runtime dropdown followed by `Start`, `Stop`, `Restart`, `Clear`; row 2 holds the `@Active file` button on its own line.
+
 ## 0.1.28 - 2026-04-26
 - Replaced the hardcoded Claude/Codex runtime switch with a customizable, unbounded list of CLI runtimes configurable from the settings panel.
 - Each runtime entry stores a display name and a launch command; users can add new runtimes with `Add runtime` and remove unused ones (a single runtime is always kept).
