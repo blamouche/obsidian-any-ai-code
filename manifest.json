@@ -1,9 +1,9 @@
 {
   "id": "any-ai-cli",
   "name": "Any AI CLI",
-  "version": "0.1.40",
+  "version": "0.1.41",
   "minAppVersion": "1.7.2",
-  "description": "Run AI coding tools like Claude or Codex from a right sidebar terminal panel.",
+  "description": "Run AI coding tools like Claude in a right sidebar terminal panel, with a customizable runtime list.",
   "author": "Benoit Lamouche",
   "authorUrl": "https://lamouche.fr",
   "isDesktopOnly": true

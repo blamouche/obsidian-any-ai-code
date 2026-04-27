@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.42 - 2026-04-27
+- Removed `Codex` from the `manifest.json` and `package.json` descriptions: confirmed against `eslint-plugin-obsidianmd@0.2.4`'s `DEFAULT_BRANDS` list — `Claude` is recognized but `Codex` is not, so the sentence-case rule treats it as a Title-Case violation mid-sentence. New description: `Run AI coding tools like Claude in a right sidebar terminal panel, with a customizable runtime list.` (still mentions extensibility without naming an unrecognized brand).
+- Plugin manifest bumped to 0.1.41.
+
 ## 0.1.41 - 2026-04-26
 - Capitalized every UI fallback label inside logical-OR expressions (`runtime.name || "(unnamed)"` family) so they pass the bot's stricter sentence-case scan: `(unnamed)` → `(Unnamed)`, `(unnamed runtime)` → `(Unnamed runtime)`, `(no runtime)` → `(No runtime)`. Confirmed via AST walk that the local `obsidianmd/ui/sentence-case` rule's `getStringFromNode` only inspects direct Literals and skips LogicalExpression operands, which is why earlier local lint runs missed these — the bot likely walks fallback expressions.
 - Plugin manifest bumped to 0.1.40.
