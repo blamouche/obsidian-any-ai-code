@@ -1,7 +1,7 @@
 {
   "id": "any-ai-cli",
   "name": "Any AI CLI",
-  "version": "0.1.41",
+  "version": "0.1.42",
   "minAppVersion": "1.7.2",
   "description": "Run AI coding tools like Claude in a right sidebar terminal panel, with a customizable runtime list.",
   "author": "Benoit Lamouche",

@@ -184,7 +184,7 @@ class ClaudeCliView extends ItemView {
     this.runtimeSelect.empty();
     const runtimes = this.plugin.settings.runtimes;
     if (runtimes.length === 0) {
-      const placeholder = this.runtimeSelect.createEl("option", { text: "(No runtime configured)" });
+      const placeholder = this.runtimeSelect.createEl("option", { text: "No runtime configured" });
       placeholder.value = "";
       this.runtimeSelect.value = "";
       this.runtimeSelect.disabled = true;
@@ -589,7 +589,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         const runtimes = this.plugin.settings.runtimes;
         if (runtimes.length === 0) {
-          dropdown.addOption("", "(No runtime configured)");
+          dropdown.addOption("", "No runtime configured");
           dropdown.setDisabled(true);
         } else {
           for (const runtime of runtimes) {

@@ -9572,7 +9572,7 @@ var ClaudeCliView = class extends import_obsidian.ItemView {
     this.runtimeSelect.empty();
     const runtimes = this.plugin.settings.runtimes;
     if (runtimes.length === 0) {
-      const placeholder = this.runtimeSelect.createEl("option", { text: "(No runtime configured)" });
+      const placeholder = this.runtimeSelect.createEl("option", { text: "No runtime configured" });
       placeholder.value = "";
       this.runtimeSelect.value = "";
       this.runtimeSelect.disabled = true;
@@ -9917,7 +9917,7 @@ var ClaudeCliSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("Default runtime").setDesc("Runtime selected by default when opening the panel (and used by auto-start).").addDropdown((dropdown) => {
       const runtimes = this.plugin.settings.runtimes;
       if (runtimes.length === 0) {
-        dropdown.addOption("", "(No runtime configured)");
+        dropdown.addOption("", "No runtime configured");
         dropdown.setDisabled(true);
       } else {
         for (const runtime of runtimes) {

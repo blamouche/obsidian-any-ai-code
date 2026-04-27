@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.43 - 2026-04-27
+- Removed parentheses around the multi-word fallback dropdown labels: `"(No runtime configured)"` → `"No runtime configured"` (sidebar runtime select placeholder + settings tab dropdown). The community bot flagged the parenthesized form even though `eslint-plugin-obsidianmd@0.2.4`'s rule accepts it locally — the bot's stricter scanner appears to treat parenthesized phrases as a sentence continuation, which makes the leading capital incorrect.
+- Plugin manifest bumped to 0.1.42.
+
 ## 0.1.42 - 2026-04-27
 - Removed `Codex` from the `manifest.json` and `package.json` descriptions: confirmed against `eslint-plugin-obsidianmd@0.2.4`'s `DEFAULT_BRANDS` list — `Claude` is recognized but `Codex` is not, so the sentence-case rule treats it as a Title-Case violation mid-sentence. New description: `Run AI coding tools like Claude in a right sidebar terminal panel, with a customizable runtime list.` (still mentions extensibility without naming an unrecognized brand).
 - Plugin manifest bumped to 0.1.41.
