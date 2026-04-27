@@ -1,5 +1,9 @@
 # Releases
 
+## 0.1.46 - 2026-04-27
+- Reworded the `manifest.json` and `package.json` descriptions to lead with the central concept of "AI assistant CLI": `Run an AI assistant CLI like Claude from a right sidebar terminal panel, with a customizable runtime list.` (106 chars, validated against `obsidianmd/ui/sentence-case`).
+- Plugin manifest bumped to 0.1.45.
+
 ## 0.1.45 - 2026-04-27
 - Trimmed the release standalone assets to the 5 files that actually matter to a hand-assembled plugin folder: required (`manifest.json`, `main.js`, `pty-proxy.js`) and strongly recommended (`styles.css`, `pty-bridge.py`). Dropped `versions.json`, `package.json`, and `package-lock.json` from the standalone list — they remain inside the zip (still uploaded), since they are either runtime-irrelevant (`versions.json`) or only useful for the optional native `node-pty` backend.
 - Reworked the release notes body and the README `Required files` section to call out a clear hierarchy (Required vs Recommended vs Optional) instead of listing every file as "indispensable".
