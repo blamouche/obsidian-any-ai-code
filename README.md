@@ -58,17 +58,25 @@ Reload the plugin afterwards.
 
 ### Required files
 
-Unlike a typical single-bundle Obsidian plugin, this one spawns a child process that needs auxiliary files alongside `main.js`. **All of the files below must be present in the plugin folder.** That's why the recommended install path is the bundled zip rather than the three standalone files Obsidian's auto-update protocol normally fetches.
+This plugin spawns a child process for the embedded terminal, so it needs more than the usual `main.js` / `manifest.json` / `styles.css` triple. The bundled release zip already contains everything in the right layout — this list is only useful if you assemble the plugin folder by hand or hot-swap a single file from the GitHub release.
+
+**Required — the plugin will not start without them:**
 
 - `manifest.json` — Obsidian plugin metadata (id, version, minAppVersion).
 - `main.js` — bundled plugin code.
-- `styles.css` — sidebar / toolbar / dropdown styling.
-- `versions.json` — maps each plugin version to its `minAppVersion`.
-- `pty-proxy.js` — Node child process that runs your CLI inside a PTY (or one of its fallbacks).
-- `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed.
-- `package.json` and `package-lock.json` — only required if you opt into the native `node-pty` backend via `npm install --omit=dev`.
+- `pty-proxy.js` — Node child process that runs your CLI inside a PTY. Without it, every `Start` throws `Missing proxy script`.
 
-Every file is also attached individually to each GitHub release (next to the zip) so you can replace one without re-downloading the whole bundle.
+**Recommended — the plugin loads without them but the experience is degraded:**
+
+- `styles.css` — sidebar / toolbar / dropdown styling. Without it, the panel renders with raw browser defaults.
+- `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed. Without it the proxy falls through to a plain pipe, which renders full-screen TUIs poorly.
+
+These five are attached individually to each GitHub release alongside the zip, so you can replace one without re-downloading the whole bundle.
+
+**Optional — only inside the zip:**
+
+- `versions.json` — used by Obsidian to find a backwards-compatible plugin version when the current `minAppVersion` is too high for the user's app; not used at runtime.
+- `package.json`, `package-lock.json` — needed only if you opt into the native `node-pty` backend via `npm install --omit=dev`.
 
 ## Usage
 

@@ -70,6 +70,21 @@ jobs:
 
             No commands required. The plugin uses an embedded Python PTY bridge fallback so it works out of the box on macOS / Linux, and falls back to direct pipe mode on Windows.
 
+            ### Files in the plugin folder
+
+            This plugin spawns a child process for the embedded terminal, so it needs more than the usual three-file Obsidian bundle. Keep these in the plugin folder:
+
+            **Required — the plugin will not start without them:**
+            - `manifest.json` — Obsidian plugin metadata (id, version, minAppVersion).
+            - `main.js` — bundled plugin code.
+            - `pty-proxy.js` — Node child process that runs your CLI inside a PTY. Without it, every `Start` throws `Missing proxy script`.
+
+            **Recommended — the plugin loads without them but the experience is degraded:**
+            - `styles.css` — sidebar / toolbar / dropdown styling. Without it, the panel renders with raw browser defaults.
+            - `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed. Without it the proxy falls through to a plain pipe, which renders Claude/Codex full-screen TUIs poorly.
+
+            All five are attached individually below so you can hot-swap any of them without re-downloading the whole zip.
+
             ### Optional — native PTY backend
 
             For best terminal fidelity (full-screen TUI rendering, resize), install the native `node-pty` module after unzipping:
@@ -79,34 +94,15 @@ jobs:
             npm install --omit=dev
             ```
 
-            Then reload the plugin.
+            This requires `package.json` and `package-lock.json` (shipped inside the zip). Then reload the plugin.
 
-            ### Files required at runtime
-
-            Unlike a typical single-bundle Obsidian plugin, this plugin spawns a child process that needs auxiliary files alongside `main.js`. **All of the files listed below must end up in the plugin folder** for the panel to work — that is why the recommended install path is the bundled zip rather than the three standalone files at the bottom of the release.
-
-            - `manifest.json` — Obsidian plugin metadata (id, version, minAppVersion).
-            - `main.js` — bundled plugin code (TS compiled by `esbuild`).
-            - `styles.css` — sidebar / toolbar / dropdown styling.
-            - `versions.json` — maps each plugin version to its `minAppVersion` for backwards-compatible installs.
-            - `pty-proxy.js` — Node child process that runs the user's CLI inside a PTY (or one of its fallbacks).
-            - `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed.
-            - `package.json` and `package-lock.json` — only required if you want to opt into the native `node-pty` backend via `npm install --omit=dev`.
-
-            Each file is also attached individually below so you can replace one without re-downloading the whole zip (useful for development / debugging).
-
-            ### Manual install / Obsidian auto-update
-
-            `main.js`, `manifest.json`, and `styles.css` are attached as standalone files for compatibility with Obsidian's plugin update protocol and tools like BRAT — but as noted above, **those three are not sufficient on their own**. Use the zip for first install and update; the three standalone files only cover hot-patches of the bundled code, manifest, or stylesheet.
+            `versions.json` is also inside the zip — it lets older Obsidian releases pick a backwards-compatible plugin version, but is not used at runtime.
           files: |
             ${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip
-            main.js
             manifest.json
-            styles.css
-            versions.json
+            main.js
             pty-proxy.js
+            styles.css
             pty-bridge.py
-            package.json
-            package-lock.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

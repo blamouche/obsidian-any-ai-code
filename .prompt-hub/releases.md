@@ -1,5 +1,10 @@
 # Releases
 
+## 0.1.45 - 2026-04-27
+- Trimmed the release standalone assets to the 5 files that actually matter to a hand-assembled plugin folder: required (`manifest.json`, `main.js`, `pty-proxy.js`) and strongly recommended (`styles.css`, `pty-bridge.py`). Dropped `versions.json`, `package.json`, and `package-lock.json` from the standalone list — they remain inside the zip (still uploaded), since they are either runtime-irrelevant (`versions.json`) or only useful for the optional native `node-pty` backend.
+- Reworked the release notes body and the README `Required files` section to call out a clear hierarchy (Required vs Recommended vs Optional) instead of listing every file as "indispensable".
+- Plugin manifest bumped to 0.1.44.
+
 ## 0.1.44 - 2026-04-27
 - Release workflow now uploads every runtime-required file at the root of each GitHub release as a standalone asset, not only inside the zip: `manifest.json`, `main.js`, `styles.css`, `versions.json`, `pty-proxy.js`, `pty-bridge.py`, `package.json`, `package-lock.json`.
 - Reworked the release notes body template to spell out what each file is for, and to make it explicit that the `main.js` / `manifest.json` / `styles.css` triple is **not sufficient on its own** for this plugin — the child-process proxy (`pty-proxy.js`) and Python fallback (`pty-bridge.py`) must also be present in the plugin folder for the panel to start.
