@@ -81,13 +81,32 @@ jobs:
 
             Then reload the plugin.
 
+            ### Files required at runtime
+
+            Unlike a typical single-bundle Obsidian plugin, this plugin spawns a child process that needs auxiliary files alongside `main.js`. **All of the files listed below must end up in the plugin folder** for the panel to work — that is why the recommended install path is the bundled zip rather than the three standalone files at the bottom of the release.
+
+            - `manifest.json` — Obsidian plugin metadata (id, version, minAppVersion).
+            - `main.js` — bundled plugin code (TS compiled by `esbuild`).
+            - `styles.css` — sidebar / toolbar / dropdown styling.
+            - `versions.json` — maps each plugin version to its `minAppVersion` for backwards-compatible installs.
+            - `pty-proxy.js` — Node child process that runs the user's CLI inside a PTY (or one of its fallbacks).
+            - `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed.
+            - `package.json` and `package-lock.json` — only required if you want to opt into the native `node-pty` backend via `npm install --omit=dev`.
+
+            Each file is also attached individually below so you can replace one without re-downloading the whole zip (useful for development / debugging).
+
             ### Manual install / Obsidian auto-update
 
-            `main.js`, `manifest.json`, and `styles.css` are also attached as standalone files for compatibility with Obsidian's plugin update protocol and tools like BRAT.
+            `main.js`, `manifest.json`, and `styles.css` are attached as standalone files for compatibility with Obsidian's plugin update protocol and tools like BRAT — but as noted above, **those three are not sufficient on their own**. Use the zip for first install and update; the three standalone files only cover hot-patches of the bundled code, manifest, or stylesheet.
           files: |
             ${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip
             main.js
             manifest.json
             styles.css
+            versions.json
+            pty-proxy.js
+            pty-bridge.py
+            package.json
+            package-lock.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

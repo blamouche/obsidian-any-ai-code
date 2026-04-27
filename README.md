@@ -58,15 +58,17 @@ Reload the plugin afterwards.
 
 ### Required files
 
-If you assemble the plugin folder by hand, make sure these are present:
+Unlike a typical single-bundle Obsidian plugin, this one spawns a child process that needs auxiliary files alongside `main.js`. **All of the files below must be present in the plugin folder.** That's why the recommended install path is the bundled zip rather than the three standalone files Obsidian's auto-update protocol normally fetches.
 
-- `manifest.json`
-- `main.js`
-- `styles.css`
-- `versions.json`
-- `pty-proxy.js`
-- `pty-bridge.py`
-- `package.json` and `package-lock.json` (only needed if you plan to install `node-pty`)
+- `manifest.json` — Obsidian plugin metadata (id, version, minAppVersion).
+- `main.js` — bundled plugin code.
+- `styles.css` — sidebar / toolbar / dropdown styling.
+- `versions.json` — maps each plugin version to its `minAppVersion`.
+- `pty-proxy.js` — Node child process that runs your CLI inside a PTY (or one of its fallbacks).
+- `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed.
+- `package.json` and `package-lock.json` — only required if you opt into the native `node-pty` backend via `npm install --omit=dev`.
+
+Every file is also attached individually to each GitHub release (next to the zip) so you can replace one without re-downloading the whole bundle.
 
 ## Usage
 

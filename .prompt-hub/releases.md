@@ -1,5 +1,11 @@
 # Releases
 
+## 0.1.44 - 2026-04-27
+- Release workflow now uploads every runtime-required file at the root of each GitHub release as a standalone asset, not only inside the zip: `manifest.json`, `main.js`, `styles.css`, `versions.json`, `pty-proxy.js`, `pty-bridge.py`, `package.json`, `package-lock.json`.
+- Reworked the release notes body template to spell out what each file is for, and to make it explicit that the `main.js` / `manifest.json` / `styles.css` triple is **not sufficient on its own** for this plugin — the child-process proxy (`pty-proxy.js`) and Python fallback (`pty-bridge.py`) must also be present in the plugin folder for the panel to start.
+- Mirrored the same explanation in the README `Required files` section.
+- Plugin manifest bumped to 0.1.43.
+
 ## 0.1.43 - 2026-04-27
 - Removed parentheses around the multi-word fallback dropdown labels: `"(No runtime configured)"` → `"No runtime configured"` (sidebar runtime select placeholder + settings tab dropdown). The community bot flagged the parenthesized form even though `eslint-plugin-obsidianmd@0.2.4`'s rule accepts it locally — the bot's stricter scanner appears to treat parenthesized phrases as a sentence continuation, which makes the leading capital incorrect.
 - Plugin manifest bumped to 0.1.42.
