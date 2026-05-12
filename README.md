@@ -58,30 +58,26 @@ Reload the plugin afterwards.
 
 ### Required files
 
-Obsidian's community-store auto-install only fetches `main.js`, `manifest.json`, and `styles.css`. That used to break this plugin because it relies on a separate Node script (`pty-proxy.js`) and a Python PTY bridge (`pty-bridge.py`) alongside `main.js`. Since 0.1.46, both files are **embedded directly into `main.js`** at build time and written next to the plugin on first launch, so a community-store install works out of the box.
+The community-store auto-install and the release zip both ship only the three canonical Obsidian plugin files. Everything else the plugin needs at runtime is bootstrapped from `main.js`:
 
-If you assemble the plugin folder by hand (or hot-swap a single file from the GitHub release), here is the canonical layout:
-
-**Required — the plugin will not start without them:**
+**In the release zip / plugin folder:**
 
 - `manifest.json` — Obsidian plugin metadata (id, version, minAppVersion).
-- `main.js` — bundled plugin code. Contains the embedded sources of `pty-proxy.js` and `pty-bridge.py` and re-writes them on first start.
+- `main.js` — bundled plugin code. Embeds the full source of `pty-proxy.js` and `pty-bridge.py` (injected by esbuild's `define` at build time) and writes them next to itself on first `Start`.
+- `styles.css` — sidebar / toolbar / dropdown styling. Without it the panel renders with raw browser defaults.
 
-**Recommended — the plugin loads without them but the experience is degraded:**
-
-- `styles.css` — sidebar / toolbar / dropdown styling. Without it, the panel renders with raw browser defaults.
-
-**Auto-generated on first run (from `main.js`) — included in the release zip for transparency:**
+**Auto-generated on first run (from `main.js`):**
 
 - `pty-proxy.js` — Node child process that runs your CLI inside a PTY.
 - `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed.
 
-The five files above are attached individually to each GitHub release alongside the zip, so you can hot-patch one without re-downloading the whole bundle.
+**Available on the GitHub release page but not in the zip:**
 
-**Optional — only inside the zip:**
+- `versions.json` — used by Obsidian to find a backwards-compatible plugin version when the current `minAppVersion` is too high for the user's app. Obsidian fetches it directly from the release URL.
 
-- `versions.json` — used by Obsidian to find a backwards-compatible plugin version when the current `minAppVersion` is too high for the user's app; not used at runtime.
-- `package.json`, `package-lock.json` — needed only if you opt into the native `node-pty` backend via `npm install --omit=dev`.
+**Not shipped with the plugin (only in the repo, for advanced users):**
+
+- `package.json` + `package-lock.json` — needed only if you opt into the native `node-pty` backend. Download them from the repo for the matching tag, drop them in the plugin folder, and run `npm install --omit=dev`.
 
 ## Usage
 
@@ -206,10 +202,10 @@ git push origin 0.1.25
 
 The workflow:
 
-1. Checks out the repo and runs `npm ci` + `npm run build`.
-2. Stages every runtime-required file (`manifest.json`, `main.js`, `styles.css`, `versions.json`, `pty-proxy.js`, `pty-bridge.py`, `package.json`, `package-lock.json`) into an `any-ai-cli/` folder.
-3. Zips it as `any-ai-cli-<tag>.zip` for one-click install.
-4. Publishes a GitHub Release attaching the zip plus standalone `main.js` / `manifest.json` / `styles.css` (for Obsidian's plugin update protocol and BRAT).
+1. Checks out the repo and runs `npm ci` + `npm run build`. At build time, `esbuild` inlines `pty-proxy.js` and `pty-bridge.py` into `main.js` (via `define`) so they no longer need to ship as separate files.
+2. Stages the three canonical Obsidian plugin files (`manifest.json`, `main.js`, `styles.css`) into an `any-ai-cli/` folder.
+3. Zips it as `any-ai-cli-<tag>.zip` for drop-in install.
+4. Publishes a GitHub Release as a draft, attaching the zip plus standalone `manifest.json`, `main.js`, `styles.css`, and `versions.json` (the assets Obsidian's plugin update protocol and tools like BRAT actually fetch).
 5. Auto-generates release notes from the commit history.
 
 Before tagging, keep these versions in sync: `manifest.json`, `versions.json`, `package.json`.

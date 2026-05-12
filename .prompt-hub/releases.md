@@ -1,5 +1,11 @@
 # Releases
 
+## 0.1.48 - 2026-05-12
+- Trimmed the release zip down to the three canonical Obsidian plugin files (`manifest.json`, `main.js`, `styles.css`) — the auxiliary `pty-proxy.js` and `pty-bridge.py` sources are already embedded in `main.js` (since 0.1.46) and written at runtime, so they no longer need to ship alongside the zip. `versions.json` and the `package.json` / `package-lock.json` pair are also dropped from the zip; `versions.json` stays as a standalone release asset (Obsidian fetches it directly).
+- Reworked the release notes body to lead with the community-store install path, document the embedded-source bootstrap, and clearly list what ships where (zip vs standalone assets vs repo-only).
+- README `Release` and `Required files` sections aligned with the new layout.
+- Plugin manifest bumped to 0.1.47.
+
 ## 0.1.47 - 2026-04-27
 - Fixed the long-standing community-store install bug: Obsidian only auto-downloads `main.js`, `manifest.json`, and `styles.css`, but this plugin also needs `pty-proxy.js` and `pty-bridge.py` to run. Embedded the full source of both files into `main.js` at build time via `esbuild`'s `define` (`PTY_PROXY_SOURCE`, `PTY_BRIDGE_SOURCE`), then write them next to the plugin folder lazily on first `Start` (and only when missing or stale). Community-store installs now work out of the box.
 - Updated `esbuild.config.mjs` to read both auxiliary files at build time and inject their content as build-time JS constants.

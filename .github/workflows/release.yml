@@ -34,10 +34,11 @@ jobs:
           set -e
           STAGE_DIR="dist/${PLUGIN_ID}"
           mkdir -p "${STAGE_DIR}"
-          # Files required at runtime by the plugin (see README "Install in a Vault").
-          # node-pty is a native module: ship package.json + package-lock.json so
-          # the user installs it for their own platform via `npm install --omit=dev`.
-          for f in manifest.json main.js styles.css versions.json pty-proxy.js pty-bridge.py package.json package-lock.json; do
+          # Only the canonical Obsidian plugin folder contents go in the zip.
+          # The auxiliary `pty-proxy.js` / `pty-bridge.py` sources are embedded
+          # inside `main.js` at build time and written next to the plugin on
+          # first start, so they don't need to ship separately.
+          for f in manifest.json main.js styles.css; do
             if [ ! -f "$f" ]; then
               echo "Missing required plugin file: $f"
               exit 1
@@ -64,26 +65,17 @@ jobs:
           body: |
             ## Install
 
+            **From the Obsidian community store** (recommended):
+
+            Open `Settings → Community plugins → Browse`, search for **Any AI CLI**, and click **Install** + **Enable**. The plugin's `main.js` embeds the Node proxy and Python PTY bridge sources and writes them next to itself on first start, so the standard three-file auto-install (`main.js` / `manifest.json` / `styles.css`) is enough.
+
+            **From this release** (manual install / pre-release testing):
+
             1. Download `${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip` below.
             2. Unzip it inside your vault's plugin folder so the resulting path is `/PATH/TO/VAULT/.obsidian/plugins/${{ env.PLUGIN_ID }}/`.
             3. Enable the plugin in Obsidian → Settings → Community plugins.
 
             No commands required. The plugin uses an embedded Python PTY bridge fallback so it works out of the box on macOS / Linux, and falls back to direct pipe mode on Windows.
-
-            ### Files in the plugin folder
-
-            This plugin spawns a child process for the embedded terminal, so it needs more than the usual three-file Obsidian bundle. Keep these in the plugin folder:
-
-            **Required — the plugin will not start without them:**
-            - `manifest.json` — Obsidian plugin metadata (id, version, minAppVersion).
-            - `main.js` — bundled plugin code.
-            - `pty-proxy.js` — Node child process that runs your CLI inside a PTY. Without it, every `Start` throws `Missing proxy script`.
-
-            **Recommended — the plugin loads without them but the experience is degraded:**
-            - `styles.css` — sidebar / toolbar / dropdown styling. Without it, the panel renders with raw browser defaults.
-            - `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed. Without it the proxy falls through to a plain pipe, which renders Claude/Codex full-screen TUIs poorly.
-
-            All five are attached individually below so you can hot-swap any of them without re-downloading the whole zip.
 
             ### Optional — native PTY backend
 
@@ -91,18 +83,23 @@ jobs:
 
             ```bash
             cd "/PATH/TO/VAULT/.obsidian/plugins/${{ env.PLUGIN_ID }}"
+            curl -fsSLO https://raw.githubusercontent.com/blamouche/obsidian-any-ai-code/${{ github.ref_name }}/package.json
+            curl -fsSLO https://raw.githubusercontent.com/blamouche/obsidian-any-ai-code/${{ github.ref_name }}/package-lock.json
             npm install --omit=dev
             ```
 
-            This requires `package.json` and `package-lock.json` (shipped inside the zip). Then reload the plugin.
+            Then reload the plugin.
 
-            `versions.json` is also inside the zip — it lets older Obsidian releases pick a backwards-compatible plugin version, but is not used at runtime.
+            ### Release assets
+
+            - `${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip` — drop-in plugin folder (the 3 canonical files: `manifest.json`, `main.js`, `styles.css`).
+            - `manifest.json` / `main.js` / `styles.css` — also attached individually for Obsidian's auto-update protocol and tools like BRAT.
+            - `versions.json` — Obsidian uses it to find a backwards-compatible plugin version when the current `minAppVersion` is too high for the user's app.
           files: |
             ${{ env.PLUGIN_ID }}-${{ github.ref_name }}.zip
             manifest.json
             main.js
-            pty-proxy.js
             styles.css
-            pty-bridge.py
+            versions.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
