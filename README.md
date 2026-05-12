@@ -58,20 +58,25 @@ Reload the plugin afterwards.
 
 ### Required files
 
-This plugin spawns a child process for the embedded terminal, so it needs more than the usual `main.js` / `manifest.json` / `styles.css` triple. The bundled release zip already contains everything in the right layout — this list is only useful if you assemble the plugin folder by hand or hot-swap a single file from the GitHub release.
+Obsidian's community-store auto-install only fetches `main.js`, `manifest.json`, and `styles.css`. That used to break this plugin because it relies on a separate Node script (`pty-proxy.js`) and a Python PTY bridge (`pty-bridge.py`) alongside `main.js`. Since 0.1.46, both files are **embedded directly into `main.js`** at build time and written next to the plugin on first launch, so a community-store install works out of the box.
+
+If you assemble the plugin folder by hand (or hot-swap a single file from the GitHub release), here is the canonical layout:
 
 **Required — the plugin will not start without them:**
 
 - `manifest.json` — Obsidian plugin metadata (id, version, minAppVersion).
-- `main.js` — bundled plugin code.
-- `pty-proxy.js` — Node child process that runs your CLI inside a PTY. Without it, every `Start` throws `Missing proxy script`.
+- `main.js` — bundled plugin code. Contains the embedded sources of `pty-proxy.js` and `pty-bridge.py` and re-writes them on first start.
 
 **Recommended — the plugin loads without them but the experience is degraded:**
 
 - `styles.css` — sidebar / toolbar / dropdown styling. Without it, the panel renders with raw browser defaults.
-- `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed. Without it the proxy falls through to a plain pipe, which renders full-screen TUIs poorly.
 
-These five are attached individually to each GitHub release alongside the zip, so you can replace one without re-downloading the whole bundle.
+**Auto-generated on first run (from `main.js`) — included in the release zip for transparency:**
+
+- `pty-proxy.js` — Node child process that runs your CLI inside a PTY.
+- `pty-bridge.py` — Python PTY fallback used on macOS/Linux when `node-pty` is not installed.
+
+The five files above are attached individually to each GitHub release alongside the zip, so you can hot-patch one without re-downloading the whole bundle.
 
 **Optional — only inside the zip:**
 

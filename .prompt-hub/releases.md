@@ -1,5 +1,12 @@
 # Releases
 
+## 0.1.47 - 2026-04-27
+- Fixed the long-standing community-store install bug: Obsidian only auto-downloads `main.js`, `manifest.json`, and `styles.css`, but this plugin also needs `pty-proxy.js` and `pty-bridge.py` to run. Embedded the full source of both files into `main.js` at build time via `esbuild`'s `define` (`PTY_PROXY_SOURCE`, `PTY_BRIDGE_SOURCE`), then write them next to the plugin folder lazily on first `Start` (and only when missing or stale). Community-store installs now work out of the box.
+- Updated `esbuild.config.mjs` to read both auxiliary files at build time and inject their content as build-time JS constants.
+- Added `ensureProxyFiles(pluginDir)` + `writeProxyFileIfNeeded` helpers in `main.ts`, called from `spawnPtyProxy` before the existence check.
+- README `Required files` section reworked: `main.js` now lists itself as carrying the embedded `pty-proxy.js` / `pty-bridge.py` sources; the two auxiliary files moved to the "auto-generated on first run" tier.
+- Plugin manifest bumped to 0.1.46.
+
 ## 0.1.46 - 2026-04-27
 - Reworded the `manifest.json` and `package.json` descriptions to lead with the central concept of "AI assistant CLI": `Run an AI assistant CLI like Claude from a right sidebar terminal panel, with a customizable runtime list.` (106 chars, validated against `obsidianmd/ui/sentence-case`).
 - Plugin manifest bumped to 0.1.45.

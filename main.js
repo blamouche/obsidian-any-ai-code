@@ -10084,8 +10084,130 @@ function getShellEnv() {
 function mergePathEntries2(currentPath, extras) {
   return mergePathEntries(currentPath, extras, process.platform);
 }
+function writeProxyFileIfNeeded(targetPath, source) {
+  try {
+    if (fs2.existsSync(targetPath) && fs2.readFileSync(targetPath, "utf8") === source) {
+      return;
+    }
+  } catch (e) {
+  }
+  fs2.writeFileSync(targetPath, source);
+}
+function ensureProxyFiles(pluginDir) {
+  writeProxyFileIfNeeded(path.join(pluginDir, "pty-proxy.js"), 'let pty = null;\nlet ptyLoadError = null;\ntry {\n  pty = require("node-pty");\n} catch (error) {\n  ptyLoadError = error;\n}\nconst { spawn } = require("child_process");\nconst fs = require("fs");\n\nfunction decodePayload(raw) {\n  if (!raw) {\n    throw new Error("Missing proxy payload");\n  }\n  const json = Buffer.from(raw, "base64").toString("utf8");\n  return JSON.parse(json);\n}\n\nfunction getLaunchSpecs(command) {\n  if (process.platform === "win32") {\n    const comspec = process.env.ComSpec || process.env.COMSPEC || "C:\\\\Windows\\\\System32\\\\cmd.exe";\n    return [{ file: comspec, args: ["/d", "/s", "/c", command] }];\n  }\n\n  const candidates = [process.env.SHELL, "/bin/zsh", "/bin/bash", "/bin/sh"].filter(Boolean);\n  const unique = Array.from(new Set(candidates));\n\n  const launches = [];\n  for (const shell of unique) {\n    if (shell.endsWith("/sh")) {\n      launches.push({ file: shell, args: ["-c", command] });\n    } else {\n      launches.push({ file: shell, args: ["-lc", command] });\n    }\n  }\n\n  if (launches.length === 0) {\n    launches.push({ file: "/bin/sh", args: ["-c", command] });\n  }\n\n  return launches;\n}\n\nfunction spawnWithFallback(launches, options) {\n  if (!pty) {\n    const reason = ptyLoadError ? ptyLoadError.message : "node-pty not loaded";\n    throw new Error(`node-pty unavailable: ${reason}`);\n  }\n  const failures = [];\n  for (const launch of launches) {\n    try {\n      return pty.spawn(launch.file, launch.args, options);\n    } catch (error) {\n      failures.push(`${launch.file}: ${error.message}`);\n    }\n  }\n  throw new Error(`All launch attempts failed. ${failures.join(" | ")}`);\n}\n\nfunction spawnPipeWithFallback(launches, options) {\n  const failures = [];\n  for (const launch of launches) {\n    try {\n      const child = spawn(launch.file, launch.args, {\n        cwd: options.cwd,\n        env: options.env,\n        stdio: ["pipe", "pipe", "pipe"]\n      });\n      return child;\n    } catch (error) {\n      failures.push(`${launch.file}: ${error.message}`);\n    }\n  }\n  throw new Error(`All pipe launch attempts failed. ${failures.join(" | ")}`);\n}\n\nfunction buildScriptLaunches(command, launches) {\n  if (process.platform === "win32") {\n    return [];\n  }\n  if (!fs.existsSync("/usr/bin/script") && !fs.existsSync("/bin/script")) {\n    return [];\n  }\n\n  const scriptBin = fs.existsSync("/usr/bin/script") ? "/usr/bin/script" : "/bin/script";\n  const wrappers = [];\n\n  // macOS/BSD script syntax\n  for (const launch of launches) {\n    wrappers.push({\n      file: scriptBin,\n      args: ["-q", "/dev/null", launch.file, ...launch.args]\n    });\n  }\n\n  // GNU script syntax fallback\n  wrappers.push({\n    file: scriptBin,\n    args: ["-q", "-c", command, "/dev/null"]\n  });\n\n  return wrappers;\n}\n\nfunction isCodexCommand(command) {\n  if (!command || typeof command !== "string") {\n    return false;\n  }\n  const trimmed = command.trim();\n  return trimmed === "codex" || trimmed.startsWith("codex ");\n}\n\nfunction resolvePythonExecutable() {\n  const candidates = [\n    process.env.PYTHON,\n    "/opt/homebrew/bin/python3",\n    "/usr/local/bin/python3",\n    "/usr/bin/python3",\n    "python3",\n    "python"\n  ].filter(Boolean);\n\n  for (const candidate of candidates) {\n    if (candidate.includes("/")) {\n      if (fs.existsSync(candidate)) {\n        return candidate;\n      }\n      continue;\n    }\n    return candidate;\n  }\n\n  return "python3";\n}\n\nfunction spawnPythonBridge(payload, launches) {\n  if (process.platform === "win32") {\n    throw new Error("python PTY bridge is not available on Windows");\n  }\n\n  const path = require("path");\n  const bridgePath = path.join(__dirname, "pty-bridge.py");\n  if (!fs.existsSync(bridgePath)) {\n    throw new Error(`missing python bridge script: ${bridgePath}`);\n  }\n\n  const pythonExec = resolvePythonExecutable();\n  const encoded = Buffer.from(\n    JSON.stringify({\n      cwd: payload.cwd,\n      env: payload.env,\n      launches,\n      cols: payload.cols,\n      rows: payload.rows\n    }),\n    "utf8"\n  ).toString("base64");\n\n  return spawn(pythonExec, [bridgePath, encoded], {\n    cwd: payload.cwd,\n    env: payload.env,\n    stdio: ["pipe", "pipe", "pipe"]\n  });\n}\n\nasync function main() {\n  const payload = decodePayload(process.argv[2]);\n  const launches = getLaunchSpecs(payload.command);\n\n  let term;\n  let mode = "pty";\n  try {\n    term = spawnWithFallback(launches, {\n      name: "xterm-256color",\n      cols: Math.max(20, Number(payload.cols) || 120),\n      rows: Math.max(10, Number(payload.rows) || 30),\n      cwd: payload.cwd,\n      env: {\n        ...payload.env,\n        TERM: "xterm-256color"\n      },\n      useConpty: process.platform === "win32"\n    });\n  } catch (error) {\n    process.stderr.write(`[proxy-warn] PTY unavailable, switching to pipe mode: ${error.message}\\n`);\n    mode = "pipe";\n    try {\n      const fallbackEnv = {\n        ...payload.env,\n        TERM: "xterm-256color"\n      };\n      const scriptLaunches = buildScriptLaunches(payload.command, launches);\n      const codexCommand = isCodexCommand(payload.command);\n\n      if (!term) {\n        try {\n          term = spawnPythonBridge(\n            {\n              cwd: payload.cwd,\n              env: fallbackEnv,\n              cols: Math.max(20, Number(payload.cols) || 120),\n              rows: Math.max(10, Number(payload.rows) || 30)\n            },\n            launches\n          );\n          process.stderr.write("[proxy-info] python PTY bridge fallback started\\n");\n        } catch (pythonError) {\n          process.stderr.write(`[proxy-warn] python bridge failed, trying direct pipe: ${pythonError.message}\\n`);\n          try {\n            term = spawnPipeWithFallback(launches, {\n              cwd: payload.cwd,\n              env: fallbackEnv\n            });\n            process.stderr.write("[proxy-info] direct pipe fallback started\\n");\n          } catch (pipeError) {\n            if (codexCommand) {\n              process.stderr.write(`[proxy-error] ${pipeError.message}\\n`);\n              process.exit(1);\n              return;\n            }\n            if (scriptLaunches.length === 0) {\n              process.stderr.write(`[proxy-error] ${pipeError.message}\\n`);\n              process.exit(1);\n              return;\n            }\n\n            process.stderr.write(`[proxy-warn] direct pipe failed, trying system \'script\': ${pipeError.message}\\n`);\n            try {\n              term = spawnPipeWithFallback(scriptLaunches, {\n                cwd: payload.cwd,\n                env: fallbackEnv\n              });\n            } catch (scriptError) {\n              process.stderr.write(`[proxy-error] ${scriptError.message}\\n`);\n              process.exit(1);\n              return;\n            }\n          }\n        }\n      }\n      process.stderr.write(`[proxy-info] fallback process started (pid=${term.pid})\\n`);\n    } catch (outerError) {\n      process.stderr.write(`[proxy-error] ${outerError.message}\\n`);\n      process.exit(1);\n      return;\n    } \n  }\n\n  if (mode === "pty") {\n    term.onData((data) => {\n      process.stdout.write(data);\n    });\n\n    term.onExit(({ exitCode }) => {\n      process.exit(exitCode ?? 0);\n    });\n\n    process.stdin.on("data", (chunk) => {\n      term.write(chunk.toString("utf8"));\n    });\n    process.stdin.resume();\n  } else {\n    term.stdout.on("data", (chunk) => {\n      process.stdout.write(typeof chunk === "string" ? chunk : chunk.toString("utf8"));\n    });\n    term.stderr.on("data", (chunk) => {\n      process.stdout.write(typeof chunk === "string" ? chunk : chunk.toString("utf8"));\n    });\n    term.on("exit", (code) => {\n      process.exit(code ?? 0);\n    });\n    process.stdin.on("data", (chunk) => {\n      if (term.stdin.writable) {\n        term.stdin.write(chunk);\n      }\n    });\n    process.stdin.resume();\n  }\n\n  process.on("message", (message) => {\n    if (!message || typeof message !== "object") {\n      return;\n    }\n    if (mode === "pty" && message.type === "resize") {\n      const cols = Math.max(20, Number(message.cols) || 120);\n      const rows = Math.max(10, Number(message.rows) || 30);\n      try {\n        term.resize(cols, rows);\n      } catch {\n        // Ignore resize errors.\n      }\n    }\n  });\n\n  const shutdown = () => {\n    try {\n      term.kill("SIGTERM");\n    } catch {\n      // Ignore shutdown errors.\n    }\n  };\n\n  process.on("SIGTERM", shutdown);\n  process.on("SIGINT", shutdown);\n}\n\nmain().catch((error) => {\n  process.stderr.write(`[proxy-fatal] ${error.message}\\n`);\n  process.exit(1);\n});\n');
+  writeProxyFileIfNeeded(path.join(pluginDir, "pty-bridge.py"), `#!/usr/bin/env python3
+import base64
+import json
+import os
+import pty
+import fcntl
+import select
+import struct
+import sys
+import termios
+
+
+def decode_payload(raw: str):
+    if not raw:
+        raise ValueError("missing payload")
+    decoded = base64.b64decode(raw.encode("utf-8")).decode("utf-8")
+    return json.loads(decoded)
+
+
+def as_exit_code(status: int) -> int:
+    if os.WIFEXITED(status):
+        return os.WEXITSTATUS(status)
+    if os.WIFSIGNALED(status):
+        return 128 + os.WTERMSIG(status)
+    return 1
+
+
+def set_winsize(fd: int, rows: int, cols: int) -> None:
+    packed = struct.pack("HHHH", rows, cols, 0, 0)
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, packed)
+
+
+def stream_pty(pid: int, fd: int) -> int:
+    stdin_open = True
+    while True:
+        readers = [fd]
+        if stdin_open:
+            readers.append(sys.stdin.fileno())
+
+        ready, _, _ = select.select(readers, [], [])
+        if fd in ready:
+            try:
+                chunk = os.read(fd, 4096)
+            except OSError:
+                chunk = b""
+            if not chunk:
+                break
+            os.write(sys.stdout.fileno(), chunk)
+
+        if stdin_open and sys.stdin.fileno() in ready:
+            try:
+                chunk = os.read(sys.stdin.fileno(), 4096)
+            except OSError:
+                chunk = b""
+            if not chunk:
+                stdin_open = False
+            else:
+                os.write(fd, chunk)
+
+    _, status = os.waitpid(pid, 0)
+    return as_exit_code(status)
+
+
+def main() -> int:
+    payload = decode_payload(sys.argv[1] if len(sys.argv) > 1 else "")
+
+    cwd = payload.get("cwd")
+    if cwd:
+        os.chdir(cwd)
+
+    env = payload.get("env") or {}
+    for key, value in env.items():
+        if value is None:
+            continue
+        os.environ[str(key)] = str(value)
+
+    launches = payload.get("launches") or []
+    cols = int(payload.get("cols") or 120)
+    rows = int(payload.get("rows") or 30)
+    cols = max(20, cols)
+    rows = max(10, rows)
+    if not launches:
+        print("[py-bridge-error] no launch specs provided", file=sys.stderr)
+        return 1
+
+    failures = []
+    for launch in launches:
+        file = launch.get("file")
+        args = launch.get("args") or []
+        argv = [str(file)] + [str(x) for x in args]
+        try:
+            pid, fd = pty.fork()
+            if pid == 0:
+                os.execvpe(str(file), argv, os.environ)
+
+            set_winsize(fd, rows, cols)
+            return stream_pty(pid, fd)
+        except OSError as error:
+            failures.append(f"{file}: {error}")
+
+    print(f"[py-bridge-error] all launch attempts failed: {' | '.join(failures)}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+`);
+}
 function spawnPtyProxy(params) {
   const resolvedPluginDir = resolvePluginDir2(params.pluginDir, params.vaultPath, path);
+  if (resolvedPluginDir) {
+    ensureProxyFiles(resolvedPluginDir);
+  }
   const scriptPath = resolvedPluginDir ? path.join(resolvedPluginDir, "pty-proxy.js") : path.resolve("pty-proxy.js");
   if (!fs2.existsSync(scriptPath)) {
     throw new Error(`Missing proxy script: ${scriptPath}`);

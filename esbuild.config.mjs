@@ -1,5 +1,6 @@
 import esbuild from "esbuild";
 import process from "process";
+import { readFileSync } from "fs";
 import builtins from "builtin-modules";
 
 const banner =
@@ -11,12 +12,22 @@ if(typeof process === 'undefined'){var process = require('process');}
 
 const prod = process.argv[2] === "production";
 
+// Embed the proxy and Python bridge sources in the bundle so the plugin still
+// works when Obsidian's community-plugin auto-install only downloads main.js +
+// manifest.json + styles.css. main.ts writes them to the plugin folder lazily.
+const PTY_PROXY_SOURCE = readFileSync("pty-proxy.js", "utf8");
+const PTY_BRIDGE_SOURCE = readFileSync("pty-bridge.py", "utf8");
+
 const context = await esbuild.context({
   banner: {
     js: banner
   },
   entryPoints: ["main.ts"],
   bundle: true,
+  define: {
+    PTY_PROXY_SOURCE: JSON.stringify(PTY_PROXY_SOURCE),
+    PTY_BRIDGE_SOURCE: JSON.stringify(PTY_BRIDGE_SOURCE)
+  },
   external: [
     "obsidian",
     "electron",

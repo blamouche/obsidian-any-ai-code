@@ -17,6 +17,13 @@ import {
   type CliRuntimeConfig
 } from "./runtime-utils";
 
+// Injected at build time by `esbuild.config.mjs` (see `define`). These hold the
+// full source of `pty-proxy.js` and `pty-bridge.py` so the plugin can recreate
+// them in the plugin folder when Obsidian's community-store auto-install only
+// fetched `main.js`, `manifest.json`, and `styles.css`.
+declare const PTY_PROXY_SOURCE: string;
+declare const PTY_BRIDGE_SOURCE: string;
+
 const VIEW_TYPE_CLAUDE = "claude-cli-view";
 
 const CODEX_DEFAULT_COMMAND =
@@ -810,6 +817,22 @@ function mergePathEntries(currentPath: string | undefined, extras: string[]): st
   return mergePathEntriesForPlatform(currentPath, extras, process.platform);
 }
 
+function writeProxyFileIfNeeded(targetPath: string, source: string): void {
+  try {
+    if (fs.existsSync(targetPath) && fs.readFileSync(targetPath, "utf8") === source) {
+      return;
+    }
+  } catch {
+    // fall through and rewrite — we'd rather overwrite than silently fail
+  }
+  fs.writeFileSync(targetPath, source);
+}
+
+function ensureProxyFiles(pluginDir: string): void {
+  writeProxyFileIfNeeded(path.join(pluginDir, "pty-proxy.js"), PTY_PROXY_SOURCE);
+  writeProxyFileIfNeeded(path.join(pluginDir, "pty-bridge.py"), PTY_BRIDGE_SOURCE);
+}
+
 function spawnPtyProxy(params: {
   command: string;
   cwd: string;
@@ -821,6 +844,13 @@ function spawnPtyProxy(params: {
   vaultPath?: string;
 }): ChildProcess {
   const resolvedPluginDir = resolvePluginDir(params.pluginDir, params.vaultPath, path);
+  if (resolvedPluginDir) {
+    // Recreate the auxiliary files from the embedded build-time constants if
+    // Obsidian's community-store auto-install did not ship them, or if a previous
+    // version's content is stale.
+    ensureProxyFiles(resolvedPluginDir);
+  }
+
   const scriptPath = resolvedPluginDir
     ? path.join(resolvedPluginDir, "pty-proxy.js")
     : path.resolve("pty-proxy.js");
