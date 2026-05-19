@@ -350,3 +350,224 @@
 .claude-cli-terminal .xterm-cursor-layer {
   position: relative;
 }
+
+.any-ai-cli-automations-modal {
+  max-width: 760px;
+  width: min(760px, 90vw);
+}
+
+.any-ai-cli-am-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 12px;
+}
+
+.any-ai-cli-am-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.any-ai-cli-am-tab:hover {
+  color: var(--text-normal);
+}
+
+.any-ai-cli-am-tab.is-active {
+  color: var(--text-normal);
+  border-bottom-color: var(--interactive-accent);
+}
+
+.any-ai-cli-am-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.any-ai-cli-am-info {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.any-ai-cli-am-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 12px 0;
+}
+
+.any-ai-cli-am-errors {
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--color-orange, #d97706);
+  background: var(--background-secondary);
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.any-ai-cli-am-errors ul {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+}
+
+.any-ai-cli-am-error-path {
+  font-family: var(--font-monospace);
+  color: var(--text-normal);
+}
+
+.any-ai-cli-am-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.any-ai-cli-am-table th,
+.any-ai-cli-am-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  vertical-align: middle;
+}
+
+.any-ai-cli-am-table th {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.any-ai-cli-am-table tr.is-disabled {
+  opacity: 0.55;
+}
+
+.any-ai-cli-am-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.any-ai-cli-am-actions button {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--interactive-normal);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.any-ai-cli-am-actions button:hover:not(:disabled) {
+  background: var(--interactive-hover);
+}
+
+.any-ai-cli-am-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.any-ai-cli-am-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.any-ai-cli-am-badge.is-enabled,
+.any-ai-cli-am-badge.is-ran {
+  background: rgba(34, 197, 94, 0.18);
+  color: var(--color-green, #16a34a);
+}
+
+.any-ai-cli-am-badge.is-disabled,
+.any-ai-cli-am-badge.is-skipped {
+  background: rgba(234, 179, 8, 0.18);
+  color: var(--color-yellow, #ca8a04);
+}
+
+.any-ai-cli-am-badge.is-error {
+  background: rgba(239, 68, 68, 0.18);
+  color: var(--color-red, #dc2626);
+}
+
+.any-ai-cli-am-history-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.any-ai-cli-am-history-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.any-ai-cli-am-history-actions button {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--interactive-normal);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.any-ai-cli-am-history-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.any-ai-cli-am-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+}
+
+.any-ai-cli-am-history-item {
+  display: grid;
+  grid-template-columns: 140px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 12px;
+}
+
+.any-ai-cli-am-history-item:last-child {
+  border-bottom: none;
+}
+
+.any-ai-cli-am-history-ts {
+  font-family: var(--font-monospace);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.any-ai-cli-am-history-name {
+  color: var(--text-normal);
+  font-weight: 500;
+}
+
+.any-ai-cli-am-history-source {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.any-ai-cli-am-history-detail {
+  grid-column: 2 / -1;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: italic;
+}

@@ -11,6 +11,7 @@ The plugin embeds a real PTY-backed terminal in the sidebar and lets you declare
 - Dedicated sidebar view with an embedded `xterm` terminal.
 - **Customizable runtime list** — declare any number of CLI runtimes from settings (Claude and Codex are pre-populated; add Aider, custom wrappers, anything on `PATH`) and switch between them via a sidebar dropdown.
 - One-click `@active file` and `@active folder` buttons that insert the current note path (or its parent folder) as a mention in the running CLI's stdin.
+- **Automations** — drop markdown files (prompt + frontmatter schedule) in a vault folder and have them fired into the running CLI on an `interval` or `cron`, or run them manually from a modal with a per-run history log.
 - Process controls in the toolbar: `Start`, `Stop`, `Restart`, `Clear`.
 - Launches the selected runtime in the **current active vault folder** so the AI sees your notes as the working tree.
 - Resilient PTY stack with multi-tier fallbacks (`node-pty` → Python PTY bridge → direct pipe → `script`) so it works on macOS, Linux, and Windows.
@@ -88,6 +89,49 @@ The community-store auto-install and the release zip both ship only the three ca
    - Click `@active file` or `@active folder` (second toolbar row) to insert the current note path or its parent folder as a mention.
    - Click `Restart` to relaunch, `Stop` to terminate, `Clear` to wipe the terminal output.
 5. Switching the dropdown to another runtime while a process is running automatically restarts it on the new CLI (configurable in settings).
+6. Click `Automations` (second toolbar row) to open the Automations modal: run any prompt manually with **Run now**, or browse the **History** tab to see what fired and when.
+
+## Automations
+
+Automations let you store reusable prompts as markdown files in your vault and have the plugin send them to the running CLI either on a schedule (`interval` or `cron`) or manually from the **Automations** modal.
+
+### Setup
+
+1. Pick a folder in your vault to hold the prompts (e.g. `Automations`).
+2. In plugin settings → **Automations folder**, set that path. Leave empty to disable the feature.
+3. Drop one markdown file per automation in that folder. The plugin scans the folder on startup and live-updates on vault changes (create / modify / delete / rename).
+
+### File format
+
+Each automation is a regular markdown file with YAML frontmatter that sets the schedule, plus a body containing the prompt that will be sent to the CLI verbatim.
+
+```markdown
+---
+name: Daily summary           # optional, defaults to the filename
+enabled: true                 # optional, defaults to true
+interval: 60                  # minutes — exclusive with `cron`
+# cron: "0 9 * * 1-5"         # standard 5-field cron — exclusive with `interval`
+runtime: claude               # optional — only fire if this runtime id or display name is running
+appendNewline: true           # optional, defaults to true (adds "\n" so the CLI executes the prompt)
+---
+
+Summarize my notes from the last 24h and propose three priorities for today.
+```
+
+Rules:
+
+- Exactly one of `interval` or `cron` must be set. `interval` is in whole minutes (>= 1). `cron` uses standard 5-field syntax (`cron-parser`).
+- `enabled: false` keeps the entry visible in the modal but skips scheduling and disables the **Run now** button.
+- The prompt is everything after the closing `---` (trimmed).
+- If the configured `runtime` does not match the currently running CLI, the run is skipped and logged in History.
+- If no CLI is running when a scheduled run is due, the run is skipped (the plugin never auto-starts a CLI for you).
+
+### Manual runs and history
+
+The **Automations** toolbar button opens a modal with two tabs:
+
+- **Automations** — list of parsed entries with schedule, last run, next run, status badge, and a **Run now** button per row (disabled when no CLI is running). Parse errors are shown at the top with file paths and reasons.
+- **History** — chronological log of every fired run (or skip / error), capped at 200 entries by default. You can **Clear history** or **Export as markdown** to create a snapshot note in the vault.
 
 ## Plugin Settings
 
@@ -105,6 +149,11 @@ Runtimes section (the customizable list of CLIs shown in the sidebar dropdown):
   - `Aider` → `aider --model openrouter/...`
 - Add as many entries as you need with **Add runtime**. Remove unused ones via the trash icon (the list must keep at least one entry).
 - Claude and Codex are pre-populated on first install. Old `command` / `codexCommand` settings from earlier versions are migrated automatically.
+
+Automations section:
+
+- **Automations folder** — vault-relative path to the folder holding automation markdown files. Leave empty to disable. See the [Automations](#automations) section above for the file format.
+- **Reload automations** — force a re-scan (otherwise the plugin already refreshes on any vault change inside the folder).
 
 Advanced:
 

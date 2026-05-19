@@ -1,5 +1,12 @@
 # Releases
 
+## 0.2.1 - 2026-05-19
+- Added the Automations feature: pick a vault folder of markdown files (frontmatter `interval` in minutes or 5-field `cron`, optional `enabled`/`runtime`/`appendNewline`/`name`; body = prompt) and the plugin fires them into the running CLI on schedule. Skips runs when no CLI is running (logged, never auto-starts).
+- Added a new `Automations` toolbar button that opens a modal with two tabs: **Automations** (list with schedule, last run, next run, status, per-row Run now + Open file; surfaces parse errors) and **History** (chronological log capped at 200 entries with status badges, Clear history, Export as markdown).
+- Added plugin-level scheduler (ticks every 30 s) wired via `registerInterval` + vault `create/modify/delete/rename` events so the folder cache live-updates.
+- Added new module `automation.ts` (pure logic: frontmatter parser, `computeNextRun`, `isDue`, `pushHistory`, `describeSchedule`, `buildPromptPreview`) with 28 vitest cases covering parsing, scheduling, ring-buffer truncation and preview formatting.
+- Added `cron-parser` runtime dep and `yaml` devDep; bumped `package-lock.json`.
+
 ## 0.2.0 - 2026-05-19
 - Opened branch `feature/automation` off `main` for upcoming automation work; bumped minor version per Prompt Hub branch protocol.
 

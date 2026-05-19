@@ -1,4 +1,4 @@
-import { App, FileSystemAdapter, ItemView, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, setIcon } from "obsidian";
+import { App, FileSystemAdapter, ItemView, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, WorkspaceLeaf, parseYaml, setIcon } from "obsidian";
 import { spawn, type ChildProcess } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
@@ -16,6 +16,16 @@ import {
   resolvePluginDir as resolvePluginDirWithVault,
   type CliRuntimeConfig
 } from "./runtime-utils";
+import {
+  buildPromptPreview,
+  computeNextRun,
+  parseAutomationFile,
+  pushHistory,
+  type AutomationParseError,
+  type AutomationRunRecord,
+  type ParsedAutomation
+} from "./automation";
+import { AutomationsModal } from "./automations-modal";
 
 // Injected at build time by `esbuild.config.mjs` (see `define`). These hold the
 // full source of `pty-proxy.js` and `pty-bridge.py` so the plugin can recreate
@@ -40,6 +50,10 @@ interface ClaudeCliPluginSettings {
   autoRestartOnRuntimeSwitch: boolean;
   autoStart: boolean;
   nodeExecutable: string;
+  automationsFolder: string;
+  automationsLastRun: Record<string, number>;
+  automationsHistory: AutomationRunRecord[];
+  automationsHistoryLimit: number;
 }
 
 const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
@@ -47,8 +61,14 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   selectedRuntimeId: "claude",
   autoRestartOnRuntimeSwitch: true,
   autoStart: true,
-  nodeExecutable: "auto"
+  nodeExecutable: "auto",
+  automationsFolder: "",
+  automationsLastRun: {},
+  automationsHistory: [],
+  automationsHistoryLimit: 200
 };
+
+const AUTOMATION_TICK_MS = 30_000;
 
 function cloneDefaultRuntimes(): CliRuntimeConfig[] {
   return DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime }));
@@ -120,10 +140,13 @@ class ClaudeCliView extends ItemView {
     const secondaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
     const mentionBtn = secondaryRowEl.createEl("button", { text: "@active file" });
     const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@active folder" });
+    const automationsBtn = secondaryRowEl.createEl("button", { text: "Automations" });
     this.setButtonIcon(mentionBtn, "file-plus", "@active file");
     this.setButtonIcon(folderMentionBtn, "folder-plus", "@active folder");
+    this.setButtonIcon(automationsBtn, "calendar-clock", "Automations");
     mentionBtn.addClass("claude-cli-btn-info");
     folderMentionBtn.addClass("claude-cli-btn-info");
+    automationsBtn.addClass("claude-cli-btn-info");
 
     this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
 
@@ -133,6 +156,9 @@ class ClaudeCliView extends ItemView {
     clearBtn.addEventListener("click", () => this.terminal?.clear());
     mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
     folderMentionBtn.addEventListener("click", () => this.insertActiveFolderMention());
+    automationsBtn.addEventListener("click", () => {
+      new AutomationsModal(this.app, this.plugin).open();
+    });
     this.runtimeSelect.addEventListener("change", () => {
       if (this.runtimeSelect) {
         this.setRuntime(this.runtimeSelect.value);
@@ -182,6 +208,29 @@ class ClaudeCliView extends ItemView {
     }
 
     return Promise.resolve();
+  }
+
+  isProcessRunning(): boolean {
+    return this.processHandle !== null && this.runningRuntimeId !== null;
+  }
+
+  getRunningRuntimeId(): string | null {
+    return this.runningRuntimeId;
+  }
+
+  matchesRuntime(target: string): boolean {
+    if (!this.runningRuntimeId) return false;
+    if (this.runningRuntimeId === target) return true;
+    const runtime = this.plugin.settings.runtimes.find((r) => r.id === this.runningRuntimeId);
+    return runtime ? runtime.name.trim().toLowerCase() === target.trim().toLowerCase() : false;
+  }
+
+  sendAutomationPrompt(text: string): void {
+    if (!this.processHandle) {
+      throw new Error("CLI process is not running");
+    }
+    this.processHandle.write(text);
+    this.writeSystemLine(`[Automation prompt injected]`);
   }
 
   refreshRuntimeSelect(): void {
@@ -501,6 +550,9 @@ class ClaudeCliView extends ItemView {
 
 export default class ClaudeCliPlugin extends Plugin {
   settings!: ClaudeCliPluginSettings;
+  private automationEntries: Map<string, ParsedAutomation> = new Map();
+  private automationErrors: Map<string, AutomationParseError> = new Map();
+  private automationListeners: Set<() => void> = new Set();
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -520,11 +572,211 @@ export default class ClaudeCliPlugin extends Plugin {
     });
 
     this.addSettingTab(new ClaudeCliSettingTab(this.app, this));
+
+    this.app.workspace.onLayoutReady(() => {
+      this.loadAutomations();
+      this.runAutomationTick();
+    });
+
+    const refreshOnVaultChange = (file: { path: string } | null) => {
+      const folder = this.settings.automationsFolder;
+      if (!folder || !file) return;
+      if (file.path === folder || file.path.startsWith(`${folder}/`)) {
+        this.loadAutomations();
+      }
+    };
+
+    this.registerEvent(this.app.vault.on("create", refreshOnVaultChange));
+    this.registerEvent(this.app.vault.on("modify", refreshOnVaultChange));
+    this.registerEvent(this.app.vault.on("delete", refreshOnVaultChange));
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        refreshOnVaultChange(file);
+        const folder = this.settings.automationsFolder;
+        if (folder && (oldPath === folder || oldPath.startsWith(`${folder}/`))) {
+          this.loadAutomations();
+        }
+      })
+    );
+
+    this.registerInterval(activeWindow.setInterval(() => this.runAutomationTick(), AUTOMATION_TICK_MS));
   }
 
   onunload(): void {
     // Per Obsidian plugin guidelines, do not detach leaves on unload —
     // Obsidian preserves leaf state across reloads/updates.
+  }
+
+  getAutomations(): ParsedAutomation[] {
+    return Array.from(this.automationEntries.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }
+
+  getAutomationErrors(): AutomationParseError[] {
+    return Array.from(this.automationErrors.values());
+  }
+
+  onAutomationsChanged(listener: () => void): () => void {
+    this.automationListeners.add(listener);
+    return () => this.automationListeners.delete(listener);
+  }
+
+  private notifyAutomationsChanged(): void {
+    this.automationListeners.forEach((listener) => {
+      try {
+        listener();
+      } catch {
+        /* ignore listener errors */
+      }
+    });
+  }
+
+  loadAutomations(): void {
+    this.automationEntries.clear();
+    this.automationErrors.clear();
+    const folderPath = this.settings.automationsFolder.trim();
+    if (!folderPath) {
+      this.notifyAutomationsChanged();
+      return;
+    }
+    const folder = this.app.vault.getFolderByPath(folderPath);
+    if (!folder) {
+      this.notifyAutomationsChanged();
+      return;
+    }
+    const files: TFile[] = [];
+    const walk = (f: TFolder) => {
+      for (const child of f.children) {
+        if (child instanceof TFile && child.extension === "md") {
+          files.push(child);
+        } else if (child instanceof TFolder) {
+          walk(child);
+        }
+      }
+    };
+    walk(folder);
+
+    void Promise.all(
+      files.map(async (file) => {
+        try {
+          const content = await this.app.vault.cachedRead(file);
+          const result = parseAutomationFile(content, file.path, (yaml) => parseYaml(yaml));
+          if (result.ok) {
+            this.automationEntries.set(file.path, result.entry);
+          } else {
+            this.automationErrors.set(file.path, result.error);
+          }
+        } catch (err) {
+          this.automationErrors.set(file.path, {
+            path: file.path,
+            name: file.basename,
+            reason: `Read error: ${(err as Error).message}`
+          });
+        }
+      })
+    ).then(() => {
+      this.notifyAutomationsChanged();
+    });
+  }
+
+  runAutomationTick(): void {
+    if (this.automationEntries.size === 0) return;
+    const now = Date.now();
+    for (const entry of this.automationEntries.values()) {
+      if (!entry.enabled) continue;
+      const last = this.settings.automationsLastRun[entry.path] ?? null;
+      const next = computeNextRun(entry, last, now);
+      if (next !== null && next <= now) {
+        void this.triggerAutomation(entry, "scheduler");
+      }
+    }
+  }
+
+  async triggerAutomation(
+    entry: ParsedAutomation,
+    source: "scheduler" | "manual"
+  ): Promise<void> {
+    const now = Date.now();
+    const baseRecord = {
+      ts: now,
+      path: entry.path,
+      name: entry.name,
+      source
+    } as const;
+
+    const view = this.findRunnableView();
+    if (!view) {
+      const reason = "No CLI is running";
+      this.recordHistory({ ...baseRecord, status: "skipped", reason });
+      if (source === "manual") {
+        new Notice(`Automation "${entry.name}" skipped — ${reason.toLowerCase()}.`, 5000);
+      }
+      return;
+    }
+
+    if (entry.runtime) {
+      const runtimeMatches = view.matchesRuntime(entry.runtime);
+      if (!runtimeMatches) {
+        const reason = `Runtime mismatch (expected "${entry.runtime}")`;
+        this.recordHistory({ ...baseRecord, status: "skipped", reason });
+        if (source === "manual") {
+          new Notice(`Automation "${entry.name}" skipped — ${reason.toLowerCase()}.`, 5000);
+        }
+        return;
+      }
+    }
+
+    try {
+      const text = entry.body + (entry.appendNewline ? "\n" : "");
+      view.sendAutomationPrompt(text);
+      const runtimeId = view.getRunningRuntimeId();
+      this.recordHistory({
+        ...baseRecord,
+        status: "ran",
+        runtimeId,
+        promptPreview: buildPromptPreview(entry.body)
+      });
+      this.settings.automationsLastRun[entry.path] = now;
+      await this.saveSettings();
+      if (source === "manual") {
+        new Notice(`Automation "${entry.name}" sent.`, 3000);
+      }
+    } catch (err) {
+      this.recordHistory({
+        ...baseRecord,
+        status: "error",
+        reason: (err as Error).message
+      });
+      new Notice(`Automation "${entry.name}" failed: ${(err as Error).message}`, 6000);
+    }
+  }
+
+  private findRunnableView(): ClaudeCliView | null {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE);
+    for (const leaf of leaves) {
+      const view = leaf.view;
+      if (view instanceof ClaudeCliView && view.isProcessRunning()) {
+        return view;
+      }
+    }
+    return null;
+  }
+
+  recordHistory(record: AutomationRunRecord): void {
+    this.settings.automationsHistory = pushHistory(
+      this.settings.automationsHistory,
+      record,
+      this.settings.automationsHistoryLimit
+    );
+    void this.saveSettings();
+    this.notifyAutomationsChanged();
+  }
+
+  clearAutomationHistory(): void {
+    this.settings.automationsHistory = [];
+    void this.saveSettings();
+    this.notifyAutomationsChanged();
   }
 
   async activateView(): Promise<void> {
@@ -560,7 +812,17 @@ export default class ClaudeCliPlugin extends Plugin {
       nodeExecutable:
         typeof raw.nodeExecutable === "string" && raw.nodeExecutable.trim()
           ? raw.nodeExecutable
-          : DEFAULT_SETTINGS.nodeExecutable
+          : DEFAULT_SETTINGS.nodeExecutable,
+      automationsFolder:
+        typeof raw.automationsFolder === "string" ? raw.automationsFolder : DEFAULT_SETTINGS.automationsFolder,
+      automationsLastRun: sanitizeLastRun(raw.automationsLastRun),
+      automationsHistory: sanitizeHistory(raw.automationsHistory),
+      automationsHistoryLimit:
+        typeof raw.automationsHistoryLimit === "number" &&
+        Number.isInteger(raw.automationsHistoryLimit) &&
+        raw.automationsHistoryLimit > 0
+          ? raw.automationsHistoryLimit
+          : DEFAULT_SETTINGS.automationsHistoryLimit
     };
   }
 
@@ -715,6 +977,39 @@ class ClaudeCliSettingTab extends PluginSettingTab {
           this.display();
         })
     );
+
+    new Setting(containerEl).setName("Automations").setHeading();
+    containerEl.createEl("p", {
+      text: "Folder containing prompt automations. Each Markdown file is one automation (frontmatter sets the schedule; body is the prompt sent to the running CLI). See readme for the file format.",
+      cls: "setting-item-description"
+    });
+
+    new Setting(containerEl)
+      .setName("Automations folder")
+      .setDesc("Vault-relative path. Leave empty to disable automations.")
+      .addText((text) =>
+        text
+          .setPlaceholder("Automations")
+          .setValue(this.plugin.settings.automationsFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.automationsFolder = value.trim();
+            await this.plugin.saveSettings();
+            this.plugin.loadAutomations();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Reload automations")
+      .setDesc("Force a re-scan of the automations folder (otherwise scans happen on vault changes).")
+      .addButton((btn) =>
+        btn
+          .setButtonText("Reload now")
+          .setIcon("refresh-cw")
+          .onClick(() => {
+            this.plugin.loadAutomations();
+            new Notice("Automations reloaded.", 2500);
+          })
+      );
 
     new Setting(containerEl).setName("Advanced").setHeading();
 
@@ -882,6 +1177,50 @@ function spawnPtyProxy(params: {
     env: params.env,
     stdio: ["pipe", "pipe", "pipe", "ipc"]
   });
+}
+
+function sanitizeLastRun(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof key === "string" && key && typeof value === "number" && Number.isFinite(value)) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+function sanitizeHistory(raw: unknown): AutomationRunRecord[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const out: AutomationRunRecord[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const r = entry as Partial<AutomationRunRecord>;
+    if (
+      typeof r.ts !== "number" ||
+      typeof r.path !== "string" ||
+      typeof r.name !== "string" ||
+      (r.source !== "scheduler" && r.source !== "manual") ||
+      (r.status !== "ran" && r.status !== "skipped" && r.status !== "error")
+    ) {
+      continue;
+    }
+    out.push({
+      ts: r.ts,
+      path: r.path,
+      name: r.name,
+      source: r.source,
+      status: r.status,
+      reason: typeof r.reason === "string" ? r.reason : undefined,
+      runtimeId: typeof r.runtimeId === "string" ? r.runtimeId : null,
+      promptPreview: typeof r.promptPreview === "string" ? r.promptPreview : undefined
+    });
+  }
+  return out;
 }
 
 function makeProxyAdapter(handle: ChildProcess): ProcessAdapter {
