@@ -70,6 +70,26 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
 
 const AUTOMATION_TICK_MS = 30_000;
 
+const EXAMPLE_AUTOMATION_CONTENT = `---
+# Display name shown in the Automations modal. Optional — defaults to the filename.
+name: Hello world
+# Set to false to keep the entry listed but never auto-fire. Optional, default true.
+enabled: true
+# Run every N minutes (whole number >= 1). Mutually exclusive with "cron".
+interval: 60
+# Or schedule with a standard 5-field cron expression instead of "interval".
+# Uncomment the next line AND remove "interval" above to use cron:
+# cron: "0 9 * * 1-5"
+# Only fire when this runtime (id or display name) is the one currently running.
+# Optional — remove to send to whichever runtime is active.
+# runtime: Claude
+# Append Enter so the CLI executes the prompt. Optional, default true.
+appendNewline: true
+---
+
+Say hello and tell me the current date and time.
+`;
+
 function cloneDefaultRuntimes(): CliRuntimeConfig[] {
   return DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime }));
 }
@@ -793,6 +813,27 @@ export default class ClaudeCliPlugin extends Plugin {
     this.notifyAutomationsChanged();
   }
 
+  async createExampleAutomation(): Promise<TFile> {
+    const folder = this.settings.automationsFolder.trim().replace(/\/+$/, "");
+    if (!folder) {
+      throw new Error("Set an automations folder first.");
+    }
+    if (!this.app.vault.getFolderByPath(folder)) {
+      await this.app.vault.createFolder(folder);
+    }
+
+    let target = `${folder}/hello-world.md`;
+    let counter = 1;
+    while (this.app.vault.getAbstractFileByPath(target)) {
+      target = `${folder}/hello-world-${counter}.md`;
+      counter += 1;
+    }
+
+    const file = await this.app.vault.create(target, EXAMPLE_AUTOMATION_CONTENT);
+    this.loadAutomations();
+    return file;
+  }
+
   async activateView(): Promise<void> {
     const { workspace } = this.app;
     let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0] ?? null;
@@ -1022,6 +1063,24 @@ class ClaudeCliSettingTab extends PluginSettingTab {
           .onClick(() => {
             this.plugin.loadAutomations();
             new Notice("Automations reloaded.", 2500);
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Create example automation")
+      .setDesc("Write a documented hello-world automation file (all fields explained) into the folder above.")
+      .addButton((btn) =>
+        btn
+          .setButtonText("Create example")
+          .setIcon("file-plus")
+          .onClick(async () => {
+            try {
+              const file = await this.plugin.createExampleAutomation();
+              new Notice(`Created ${file.path}`, 3000);
+              await this.app.workspace.openLinkText(file.path, "", true);
+            } catch (err) {
+              new Notice((err as Error).message, 5000);
+            }
           })
       );
 

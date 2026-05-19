@@ -101,6 +101,8 @@ Automations let you store reusable prompts as markdown files in your vault and h
 2. In plugin settings → **Automations folder**, set that path. Leave empty to disable the feature.
 3. Drop one markdown file per automation in that folder. The plugin scans the folder on startup and live-updates on vault changes (create / modify / delete / rename).
 
+> Tip: in plugin settings, click **Create example** to drop a fully documented `hello-world.md` (every field explained) into the configured folder — the fastest way to see the format.
+
 ### File format
 
 Each automation is a regular markdown file with YAML frontmatter that sets the schedule, plus a body containing the prompt that will be sent to the CLI verbatim.
@@ -154,6 +156,7 @@ Automations section:
 
 - **Automations folder** — vault-relative path to the folder holding automation markdown files. Leave empty to disable. See the [Automations](#automations) section above for the file format.
 - **Reload automations** — force a re-scan (otherwise the plugin already refreshes on any vault change inside the folder).
+- **Create example automation** — write a documented `hello-world.md` (all fields explained) into the configured folder and open it.
 
 Advanced:
 

@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.4 - 2026-05-19
+- Added a "Create example automation" button to the Automations settings section. It writes a documented `hello-world.md` (every frontmatter field explained with inline comments, simple "say hello and tell me the time" prompt) into the configured automations folder, creating the folder if needed and picking a non-clashing filename, then opens the file. Surfaces a clear notice if no folder is configured.
+
 ## 0.2.3 - 2026-05-19
 - Fixed Automations not submitting in Codex (worked in Claude). Codex uses bracketed-paste-style heuristics: when `body + \r` arrives in a single stdin write, the `\r` is treated as a literal newline inside the input field, not as the submit key. Split the write — body first, then `\r` ~120 ms later — so the paste-detection window closes before Enter is registered. Claude behaviour unchanged.
 
