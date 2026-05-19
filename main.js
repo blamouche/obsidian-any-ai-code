@@ -18975,19 +18975,50 @@ var DEFAULT_SETTINGS = {
 };
 var AUTOMATION_TICK_MS = 3e4;
 var EXAMPLE_AUTOMATION_CONTENT = `---
-# Display name shown in the Automations modal. Optional \u2014 defaults to the filename.
+# ============================================================
+# Any AI CLI \u2014 automation file. Every available option is shown
+# below. The text AFTER the closing "---" is the prompt that gets
+# sent to the running CLI.
+# ============================================================
+
+# name (string, optional)
+# Display name shown in the Automations modal. Defaults to the
+# filename (without ".md") when omitted.
 name: Hello world
-# Set to false to keep the entry listed but never auto-fire. Optional, default true.
+
+# enabled (true | false, optional, default true)
+# When false, the scheduler never auto-fires this automation. It
+# still appears in the modal (greyed out) and can be triggered by
+# hand with the "Run now" button.
 enabled: true
-# Run every N minutes (whole number >= 1). Mutually exclusive with "cron".
+
+# ----- Schedule: set EXACTLY ONE of "interval" or "cron" -----
+
+# interval (integer minutes, >= 1)
+# Fire every N minutes. The first run happens on the next tick
+# after the plugin loads; subsequent runs are N minutes apart.
 interval: 60
-# Or schedule with a standard 5-field cron expression instead of "interval".
-# Uncomment the next line AND remove "interval" above to use cron:
-# cron: "0 9 * * 1-5"
-# Only fire when this runtime (id or display name) is the one currently running.
-# Optional \u2014 remove to send to whichever runtime is active.
+
+# cron (string, standard 5-field expression)
+# Alternative to "interval". To use it: comment out "interval"
+# above, then uncomment ONE line below. Fields are:
+#   minute hour day-of-month month day-of-week
+# cron: "*/30 * * * *"     # every 30 minutes
+# cron: "0 9 * * *"        # every day at 09:00
+# cron: "0 9 * * 1-5"      # weekdays at 09:00
+# cron: "0 */2 * * *"      # every 2 hours, on the hour
+# cron: "0 8 1 * *"        # 08:00 on the 1st of each month
+
+# runtime (string, optional)
+# Only fire when this runtime is the one currently running, matched
+# by its id OR its display name (case-insensitive). Remove the line
+# to send to whichever runtime is active. Skipped runs are logged
+# in the History tab.
 # runtime: Claude
-# Append Enter so the CLI executes the prompt. Optional, default true.
+
+# appendNewline (true | false, optional, default true)
+# Append an Enter keystroke after the prompt so the CLI executes it.
+# Set false only if you want the text inserted without submitting.
 appendNewline: true
 ---
 

@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.5 - 2026-05-19
+- Expanded the generated example automation to document every available option exhaustively: per-field comments with type/default, the interval-vs-cron exclusivity rule, five worked cron examples, runtime id/name matching note, and appendNewline behaviour. The file stays valid (interval active, cron/runtime commented) so it runs as-is.
+
 ## 0.2.4 - 2026-05-19
 - Added a "Create example automation" button to the Automations settings section. It writes a documented `hello-world.md` (every frontmatter field explained with inline comments, simple "say hello and tell me the time" prompt) into the configured automations folder, creating the folder if needed and picking a non-clashing filename, then opens the file. Surfaces a clear notice if no folder is configured.
 
