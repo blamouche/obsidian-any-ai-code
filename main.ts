@@ -110,7 +110,7 @@ interval: 60
 # by its id OR its display name (case-insensitive). Remove the line
 # to send to whichever runtime is active. Skipped runs are logged
 # in the History tab.
-# runtime: Claude
+runtime: Claude
 
 # appendNewline (true | false, optional, default true)
 # Append an Enter keystroke after the prompt so the CLI executes it.

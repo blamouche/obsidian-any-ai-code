@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.6 - 2026-05-19
+- Made `runtime` an active field in the generated example automation (was commented out) so all schedulable options appear live; defaults to `Claude` with a comment explaining how to remove it to target any runtime.
+
 ## 0.2.5 - 2026-05-19
 - Expanded the generated example automation to document every available option exhaustively: per-field comments with type/default, the interval-vs-cron exclusivity rule, five worked cron examples, runtime id/name matching note, and appendNewline behaviour. The file stays valid (interval active, cron/runtime commented) so it runs as-is.
 
