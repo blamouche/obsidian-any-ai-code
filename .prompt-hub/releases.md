@@ -1,7 +1,10 @@
 # Releases
 
 ## 0.2.8 - 2026-05-20
-- Updated the README intro paragraph to describe the Automations feature (scheduled/manual prompt files with exportable per-run history) alongside the existing runtime and mention features. Docs only — no code or bundle change.
+- **First release shipping the Automations feature.** Merged `feature/automation` into `main`: schedule reusable prompts from a vault folder (per-file `interval`/`cron` frontmatter), fire them into the running CLI automatically or manually from the Automations modal, with a per-run history (capped ring buffer) you can clear or export to a date-stamped markdown file. Includes the "Create example automation" settings button that writes a fully documented hello-world file.
+- Fixes folded into this release: send `\r` (not `\n`) so prompts submit; split body/Enter into two writes so Codex submits too; export creates a fresh date-and-time-stamped file each time.
+- Aligned `manifest.json` and `versions.json` to 0.2.8 for the release tag.
+- Updated the README intro paragraph to describe the Automations feature alongside the existing runtime and mention features.
 
 ## 0.2.7 - 2026-05-20
 - History "Export as markdown" now always creates a fresh date-stamped file. The filename includes the export date and time (`automations-history-YYYY-MM-DD-HHMMSS.md`) with a numeric suffix guard, so repeated same-day exports no longer fail on an existing-file clash. The export note heading also shows the readable export timestamp.
