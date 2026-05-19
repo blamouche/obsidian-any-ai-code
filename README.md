@@ -4,7 +4,7 @@
 
 Run any local AI coding CLI — Claude, Codex, or your own — inside a right sidebar terminal in Obsidian.
 
-The plugin embeds a real PTY-backed terminal in the sidebar and lets you declare an unlimited list of CLI runtimes from settings (each with a display name and a launch command). Pick one from a dropdown to start it in your active vault folder, switch between them on the fly, and inject the active file or folder as a mention with one click.
+The plugin embeds a real PTY-backed terminal in the sidebar and lets you declare an unlimited list of CLI runtimes from settings (each with a display name and a launch command). Pick one from a dropdown to start it in your active vault folder, switch between them on the fly, and inject the active file or folder as a mention with one click. You can also schedule reusable prompts: drop markdown files in a vault folder and the plugin fires them into the running CLI on an interval or cron — or run them on demand from the Automations panel, with a per-run history you can export.
 
 ## Features
 

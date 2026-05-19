@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.8 - 2026-05-20
+- Updated the README intro paragraph to describe the Automations feature (scheduled/manual prompt files with exportable per-run history) alongside the existing runtime and mention features. Docs only — no code or bundle change.
+
 ## 0.2.7 - 2026-05-20
 - History "Export as markdown" now always creates a fresh date-stamped file. The filename includes the export date and time (`automations-history-YYYY-MM-DD-HHMMSS.md`) with a numeric suffix guard, so repeated same-day exports no longer fail on an existing-file clash. The export note heading also shows the readable export timestamp.
 
