@@ -19104,11 +19104,20 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     const runtime = this.plugin.settings.runtimes.find((r) => r.id === this.runningRuntimeId);
     return runtime ? runtime.name.trim().toLowerCase() === target.trim().toLowerCase() : false;
   }
-  sendAutomationPrompt(text) {
+  sendAutomationPrompt(text, submitWithEnter) {
     if (!this.processHandle) {
       throw new Error("CLI process is not running");
     }
     this.processHandle.write(text);
+    if (submitWithEnter) {
+      const handle = this.processHandle;
+      activeWindow.setTimeout(() => {
+        try {
+          handle.write("\r");
+        } catch (e) {
+        }
+      }, 120);
+    }
     this.writeSystemLine(`[Automation prompt injected]`);
   }
   refreshRuntimeSelect() {
@@ -19550,8 +19559,7 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
       }
     }
     try {
-      const text = entry.body + (entry.appendNewline ? "\r" : "");
-      view.sendAutomationPrompt(text);
+      view.sendAutomationPrompt(entry.body, entry.appendNewline);
       const runtimeId = view.getRunningRuntimeId();
       this.recordHistory({
         ...baseRecord,

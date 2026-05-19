@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.3 - 2026-05-19
+- Fixed Automations not submitting in Codex (worked in Claude). Codex uses bracketed-paste-style heuristics: when `body + \r` arrives in a single stdin write, the `\r` is treated as a literal newline inside the input field, not as the submit key. Split the write — body first, then `\r` ~120 ms later — so the paste-detection window closes before Enter is registered. Claude behaviour unchanged.
+
 ## 0.2.2 - 2026-05-19
 - Fixed Automations: prompts were being typed into the running CLI but Enter was never registered, so the prompt sat in the input buffer. Root cause: appended `\n` (line feed) instead of `\r` (carriage return). Raw-mode TUIs like Claude / Codex read keypresses directly and only recognize `\r` as Enter (cooked-mode shells accept `\r` too via tty line discipline translation). Switched the `appendNewline` suffix from `\n` to `\r`.
 

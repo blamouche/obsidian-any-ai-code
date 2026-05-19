@@ -225,11 +225,26 @@ class ClaudeCliView extends ItemView {
     return runtime ? runtime.name.trim().toLowerCase() === target.trim().toLowerCase() : false;
   }
 
-  sendAutomationPrompt(text: string): void {
+  sendAutomationPrompt(text: string, submitWithEnter: boolean): void {
     if (!this.processHandle) {
       throw new Error("CLI process is not running");
     }
     this.processHandle.write(text);
+    if (submitWithEnter) {
+      // Send Enter as a separate write after a short delay. Some TUIs (notably
+      // Codex) use bracketed-paste-style heuristics: when text+`\r` arrives in
+      // a single write they treat the `\r` as a literal newline inside the
+      // input field, not as the submit key. Splitting the writes lets the
+      // paste-detection window close, so the `\r` is read as a real Enter.
+      const handle = this.processHandle;
+      activeWindow.setTimeout(() => {
+        try {
+          handle.write("\r");
+        } catch {
+          /* process may have exited between writes */
+        }
+      }, 120);
+    }
     this.writeSystemLine(`[Automation prompt injected]`);
   }
 
@@ -728,11 +743,7 @@ export default class ClaudeCliPlugin extends Plugin {
     }
 
     try {
-      // PTY-attached CLIs (Claude, Codex…) read raw key events: the Enter key
-      // sends `\r`, not `\n`. Cooked-mode shells also accept `\r` because the
-      // tty line discipline translates it. So `\r` is the safe Enter.
-      const text = entry.body + (entry.appendNewline ? "\r" : "");
-      view.sendAutomationPrompt(text);
+      view.sendAutomationPrompt(entry.body, entry.appendNewline);
       const runtimeId = view.getRunningRuntimeId();
       this.recordHistory({
         ...baseRecord,
