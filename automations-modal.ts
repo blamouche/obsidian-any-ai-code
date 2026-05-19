@@ -222,8 +222,9 @@ export class AutomationsModal extends Modal {
   }
 
   private async exportHistory(history: AutomationRunRecord[]): Promise<void> {
+    const now = new Date();
     const lines: string[] = [];
-    lines.push(`# Automations history — ${new Date().toISOString()}`, "");
+    lines.push(`# Automations history — exported ${formatDateTime(now.getTime())}`, "");
     lines.push("| Time | Name | Status | Source | Detail | Path |");
     lines.push("| --- | --- | --- | --- | --- | --- |");
     for (const r of history) {
@@ -232,7 +233,19 @@ export class AutomationsModal extends Modal {
         `| ${formatDateTime(r.ts)} | ${r.name.replace(/\|/g, "\\|")} | ${r.status} | ${r.source} | ${detail} | ${r.path} |`
       );
     }
-    const fileName = `automations-history-${new Date().toISOString().slice(0, 10)}.md`;
+
+    // Date-stamped filename for the export day, with the time appended so each
+    // export creates a distinct new file instead of clashing with an earlier
+    // same-day export. A numeric suffix guards against same-second collisions.
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const base = `automations-history-${stamp}`;
+    let fileName = `${base}.md`;
+    let counter = 1;
+    while (this.app.vault.getAbstractFileByPath(fileName)) {
+      fileName = `${base}-${counter}.md`;
+      counter += 1;
+    }
+
     try {
       const file = await this.app.vault.create(fileName, lines.join("\n"));
       await this.app.workspace.openLinkText(file.path, "", true);

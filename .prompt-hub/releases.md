@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.7 - 2026-05-20
+- History "Export as markdown" now always creates a fresh date-stamped file. The filename includes the export date and time (`automations-history-YYYY-MM-DD-HHMMSS.md`) with a numeric suffix guard, so repeated same-day exports no longer fail on an existing-file clash. The export note heading also shows the readable export timestamp.
+
 ## 0.2.6 - 2026-05-19
 - Made `runtime` an active field in the generated example automation (was commented out) so all schedulable options appear live; defaults to `Claude` with a comment explaining how to remove it to target any runtime.
 

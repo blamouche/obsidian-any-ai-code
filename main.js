@@ -18912,8 +18912,9 @@ var AutomationsModal = class extends import_obsidian.Modal {
     });
   }
   async exportHistory(history) {
+    const now = /* @__PURE__ */ new Date();
     const lines = [];
-    lines.push(`# Automations history \u2014 ${(/* @__PURE__ */ new Date()).toISOString()}`, "");
+    lines.push(`# Automations history \u2014 exported ${formatDateTime(now.getTime())}`, "");
     lines.push("| Time | Name | Status | Source | Detail | Path |");
     lines.push("| --- | --- | --- | --- | --- | --- |");
     for (const r of history) {
@@ -18922,7 +18923,14 @@ var AutomationsModal = class extends import_obsidian.Modal {
         `| ${formatDateTime(r.ts)} | ${r.name.replace(/\|/g, "\\|")} | ${r.status} | ${r.source} | ${detail} | ${r.path} |`
       );
     }
-    const fileName = `automations-history-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.md`;
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const base = `automations-history-${stamp}`;
+    let fileName = `${base}.md`;
+    let counter = 1;
+    while (this.app.vault.getAbstractFileByPath(fileName)) {
+      fileName = `${base}-${counter}.md`;
+      counter += 1;
+    }
     try {
       const file = await this.app.vault.create(fileName, lines.join("\n"));
       await this.app.workspace.openLinkText(file.path, "", true);
