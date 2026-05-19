@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.0 - 2026-05-19
+- Opened branch `feature/automation` off `main` for upcoming automation work; bumped minor version per Prompt Hub branch protocol.
+
 ## 0.1.48 - 2026-05-12
 - Trimmed the release zip down to the three canonical Obsidian plugin files (`manifest.json`, `main.js`, `styles.css`) — the auxiliary `pty-proxy.js` and `pty-bridge.py` sources are already embedded in `main.js` (since 0.1.46) and written at runtime, so they no longer need to ship alongside the zip. `versions.json` and the `package.json` / `package-lock.json` pair are also dropped from the zip; `versions.json` stays as a standalone release asset (Obsidian fetches it directly).
 - Reworked the release notes body to lead with the community-store install path, document the embedded-source bootstrap, and clearly list what ships where (zip vs standalone assets vs repo-only).
