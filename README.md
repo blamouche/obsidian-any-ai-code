@@ -112,7 +112,7 @@ enabled: true                 # optional, defaults to true
 interval: 60                  # minutes — exclusive with `cron`
 # cron: "0 9 * * 1-5"         # standard 5-field cron — exclusive with `interval`
 runtime: claude               # optional — only fire if this runtime id or display name is running
-appendNewline: true           # optional, defaults to true (adds "\n" so the CLI executes the prompt)
+appendNewline: true           # optional, defaults to true (adds Enter so the CLI executes the prompt)
 ---
 
 Summarize my notes from the last 24h and propose three priorities for today.

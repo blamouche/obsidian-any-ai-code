@@ -728,7 +728,10 @@ export default class ClaudeCliPlugin extends Plugin {
     }
 
     try {
-      const text = entry.body + (entry.appendNewline ? "\n" : "");
+      // PTY-attached CLIs (Claude, Codex…) read raw key events: the Enter key
+      // sends `\r`, not `\n`. Cooked-mode shells also accept `\r` because the
+      // tty line discipline translates it. So `\r` is the safe Enter.
+      const text = entry.body + (entry.appendNewline ? "\r" : "");
       view.sendAutomationPrompt(text);
       const runtimeId = view.getRunningRuntimeId();
       this.recordHistory({

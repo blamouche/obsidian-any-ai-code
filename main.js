@@ -19550,7 +19550,7 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
       }
     }
     try {
-      const text = entry.body + (entry.appendNewline ? "\n" : "");
+      const text = entry.body + (entry.appendNewline ? "\r" : "");
       view.sendAutomationPrompt(text);
       const runtimeId = view.getRunningRuntimeId();
       this.recordHistory({

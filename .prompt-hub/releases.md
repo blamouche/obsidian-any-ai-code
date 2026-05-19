@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.2 - 2026-05-19
+- Fixed Automations: prompts were being typed into the running CLI but Enter was never registered, so the prompt sat in the input buffer. Root cause: appended `\n` (line feed) instead of `\r` (carriage return). Raw-mode TUIs like Claude / Codex read keypresses directly and only recognize `\r` as Enter (cooked-mode shells accept `\r` too via tty line discipline translation). Switched the `appendNewline` suffix from `\n` to `\r`.
+
 ## 0.2.1 - 2026-05-19
 - Added the Automations feature: pick a vault folder of markdown files (frontmatter `interval` in minutes or 5-field `cron`, optional `enabled`/`runtime`/`appendNewline`/`name`; body = prompt) and the plugin fires them into the running CLI on schedule. Skips runs when no CLI is running (logged, never auto-starts).
 - Added a new `Automations` toolbar button that opens a modal with two tabs: **Automations** (list with schedule, last run, next run, status, per-row Run now + Open file; surfaces parse errors) and **History** (chronological log capped at 200 entries with status badges, Clear history, Export as markdown).
