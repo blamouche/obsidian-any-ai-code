@@ -20282,7 +20282,8 @@ function getShellEnv() {
       path.join(home, ".volta", "bin"),
       path.join(home, ".asdf", "shims"),
       path.join(home, "Library", "pnpm"),
-      path.join(home, ".local", "share", "pnpm")
+      path.join(home, ".local", "share", "pnpm"),
+      path.join(home, ".lmstudio", "bin")
     );
     const nvmVersionsDir = path.join(home, ".nvm", "versions", "node");
     if (fs2.existsSync(nvmVersionsDir)) {

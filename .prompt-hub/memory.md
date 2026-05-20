@@ -134,3 +134,10 @@
 - Détails : logger gated par payload.verbose dans pty-proxy.js (info/warn silencieux par défaut) ; setting verboseProxyLogs (off) ; spawnPtyProxy passe verbose dans le payload ; toggle UI dans Advanced. pty-proxy.js réembarqué au build (PTY_PROXY_SOURCE) et réécrit sur disque par writeProxyFileIfNeeded.
 - Fichiers : pty-proxy.js, main.ts, README.md ; version 0.2.14 -> 0.2.15.
 - Validation : node --check OK, lint OK, 74 tests OK, tsc propre, build OK. Statut : success.
+
+## 2026-05-20 — agent (Claude Opus 4.7)
+- Action : corrigé "command not found: lms" lors du lancement du CLI LM Studio depuis le plugin.
+- Cause : shell lancé en -lc (login non-interactif) ne source pas ~/.zshrc où l'installateur lms ajoute ~/.lmstudio/bin au PATH.
+- Détails : ajout de ~/.lmstudio/bin à extraPaths dans getShellEnv() (main.ts) ; mergePathEntries déduplique déjà. Vérifié que ~/.lmstudio/bin/lms existe.
+- Fichiers : main.ts, releases.md, version.md, manifest.json, package.json, versions.json ; version 0.2.15 -> 0.2.16.
+- Validation : build OK, chemin présent dans main.js. Statut : success.

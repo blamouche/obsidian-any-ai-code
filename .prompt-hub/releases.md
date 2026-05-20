@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.16 - 2026-05-20
+- Fixed `command not found: lms` (and similar) when launching the LM Studio CLI from the plugin. The PTY backend launches the shell with `-lc` (login, non-interactive), which sources `~/.zprofile`/`~/.zlogin` but **not** `~/.zshrc` — where the `lms` installer adds `~/.lmstudio/bin` to `PATH`. The plugin now adds `~/.lmstudio/bin` to its automatic PATH discovery (`getShellEnv()` in `main.ts`), so `lms` resolves without relying on `.zshrc`.
+
 ## 0.2.15 - 2026-05-20
 - Quieter terminal on launch: the PTY backend's fallback chatter (`[proxy-warn] PTY unavailable...`, the node-pty "Require stack" dump, `[proxy-info] python PTY bridge fallback started`, `fallback process started (pid=...)`) is now hidden by default. These are normal fallback notes (the optional native `node-pty` module isn't installed), not errors. Genuine launch failures (`[proxy-error]` / `[proxy-fatal]`) are still always shown. A new **Verbose proxy logs** toggle (Advanced settings, off by default) brings the full diagnostics back for debugging.
 
