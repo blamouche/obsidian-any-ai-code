@@ -1,5 +1,12 @@
 # Releases
 
+## 0.2.9 - 2026-05-20
+- **Parallel runtime sessions in tabs.** The sidebar panel now hosts multiple independent sessions, each with its own PTY process and xterm terminal, shown in a tab bar. A `New session` button / `+` control opens a session from any configured runtime; multiple sessions of the same runtime are allowed and disambiguated (`Claude`, `Claude (2)`, …). Switching tabs refits the visible terminal; the per-tab `×` closes a session. `Stop` / `Restart` / `Clear` / `@active file` / `@active folder` now act on the active tab.
+- **Automations spawn their own session.** Each automation run (scheduled or manual) opens a fresh session tab for the declared `runtime` (or the default runtime when none is declared), waits for the CLI to boot, then sends the prompt. Replaces the old "skip if no CLI running / runtime mismatch" behaviour. Unknown declared runtimes are skipped and logged.
+- New settings: **Auto-close automation sessions** (default on — closes an automation tab when its process exits) and **Max concurrent sessions** (default 8, `0` = unlimited) to guard against runaway spawns. Removed the obsolete "Auto-restart on runtime switch" toggle (the sidebar runtime dropdown is replaced by the tab bar).
+- Extracted pure helpers to `session-utils.ts` (`resolveRuntimeForAutomation`, `runtimeMatches`, `nextSessionLabel`, `canOpenSession`) with unit tests; the **Run now** button in the Automations modal is always enabled.
+- Updated README and the generated example automation to document the tabbed/parallel model. Aligned `manifest.json`, `versions.json`, and `package.json` to 0.2.9.
+
 ## 0.2.8 - 2026-05-20
 - **First release shipping the Automations feature.** Merged `feature/automation` into `main`: schedule reusable prompts from a vault folder (per-file `interval`/`cron` frontmatter), fire them into the running CLI automatically or manually from the Automations modal, with a per-run history (capped ring buffer) you can clear or export to a date-stamped markdown file. Includes the "Create example automation" settings button that writes a fully documented hello-world file.
 - Fixes folded into this release: send `\r` (not `\n`) so prompts submit; split body/Enter into two writes so Codex submits too; export creates a fresh date-and-time-stamped file each time.

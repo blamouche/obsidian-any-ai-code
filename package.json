@@ -1,12 +1,12 @@
 {
   "name": "any-ai-cli",
-  "version": "0.1.47",
+  "version": "0.2.9",
   "description": "Run an AI assistant CLI like Claude from a right sidebar terminal panel, with a customizable runtime list.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
-    "lint": "eslint main.ts runtime-utils.ts \"tests/**/*.ts\"",
+    "lint": "eslint main.ts runtime-utils.ts session-utils.ts \"tests/**/*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest"
   },

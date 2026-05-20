@@ -1,5 +1,6 @@
-import { App, FileSystemAdapter, ItemView, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, WorkspaceLeaf, parseYaml, setIcon } from "obsidian";
+import { App, FileSystemAdapter, ItemView, Menu, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, WorkspaceLeaf, parseYaml, setIcon } from "obsidian";
 import { spawn, type ChildProcess } from "child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -16,6 +17,11 @@ import {
   resolvePluginDir as resolvePluginDirWithVault,
   type CliRuntimeConfig
 } from "./runtime-utils";
+import {
+  canOpenSession,
+  nextSessionLabel,
+  resolveRuntimeForAutomation
+} from "./session-utils";
 import {
   buildPromptPreview,
   computeNextRun,
@@ -54,6 +60,8 @@ interface ClaudeCliPluginSettings {
   automationsLastRun: Record<string, number>;
   automationsHistory: AutomationRunRecord[];
   automationsHistoryLimit: number;
+  autoCloseAutomationSessions: boolean;
+  maxConcurrentSessions: number;
 }
 
 const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
@@ -65,7 +73,9 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   automationsFolder: "",
   automationsLastRun: {},
   automationsHistory: [],
-  automationsHistoryLimit: 200
+  automationsHistoryLimit: 200,
+  autoCloseAutomationSessions: true,
+  maxConcurrentSessions: 8
 };
 
 const AUTOMATION_TICK_MS = 30_000;
@@ -106,10 +116,10 @@ interval: 60
 # cron: "0 8 1 * *"        # 08:00 on the 1st of each month
 
 # runtime (string, optional)
-# Only fire when this runtime is the one currently running, matched
-# by its id OR its display name (case-insensitive). Remove the line
-# to send to whichever runtime is active. Skipped runs are logged
-# in the History tab.
+# Which runtime to spawn for this automation, matched by its id OR its
+# display name (case-insensitive). Each run opens its own session tab.
+# Remove the line to use the default runtime (set in plugin settings).
+# Runs naming an unconfigured runtime are skipped and logged in History.
 runtime: Claude
 
 # appendNewline (true | false, optional, default true)
@@ -133,150 +143,112 @@ interface ProcessAdapter {
   onExit(callback: (exitCode: number, signal: string) => void): void;
 }
 
-class ClaudeCliView extends ItemView {
-  private plugin: ClaudeCliPlugin;
-  private terminal: Terminal | null = null;
-  private fitAddon: FitAddon | null = null;
-  private processHandle: ProcessAdapter | null = null;
-  private terminalHostEl: HTMLDivElement | null = null;
-  private resizeObserver: ResizeObserver | null = null;
-  private statusEl: HTMLDivElement | null = null;
-  private runtimeSelect: HTMLSelectElement | null = null;
-  private runningRuntimeId: string | null = null;
-  private pendingStartRuntimeId: string | null = null;
+type SessionOrigin = "manual" | "automation";
 
-  constructor(leaf: WorkspaceLeaf, plugin: ClaudeCliPlugin) {
-    super(leaf);
-    this.plugin = plugin;
-  }
+/** How long to wait for the spawned CLI to emit output before considering a
+ * freshly started session "ready" to receive an automation prompt. */
+const SESSION_READY_FALLBACK_MS = 1200;
 
-  getViewType(): string {
-    return VIEW_TYPE_CLAUDE;
-  }
-
-  getDisplayText(): string {
-    return "Any AI CLI";
-  }
-
-  getIcon(): string {
-    return "bot";
-  }
-
-  onOpen(): Promise<void> {
-    this.contentEl.empty();
-    this.contentEl.addClass("claude-cli-view");
-
-    const toolbarEl = this.contentEl.createDiv({ cls: "claude-cli-toolbar" });
-
-    const primaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
-    const runtimePickerEl = primaryRowEl.createDiv({ cls: "claude-cli-runtime-picker" });
-    const runtimeIconEl = runtimePickerEl.createSpan({ cls: "claude-cli-runtime-picker-icon" });
-    setIcon(runtimeIconEl, "terminal");
-    this.runtimeSelect = runtimePickerEl.createEl("select", { cls: "claude-cli-runtime-select" });
-    this.runtimeSelect.setAttribute("aria-label", "Select runtime");
-    this.refreshRuntimeSelect();
-    const runtimeChevronEl = runtimePickerEl.createSpan({ cls: "claude-cli-runtime-picker-chevron" });
-    setIcon(runtimeChevronEl, "chevron-down");
-    const startBtn = primaryRowEl.createEl("button", { text: "Start" });
-    const stopBtn = primaryRowEl.createEl("button", { text: "Stop" });
-    const restartBtn = primaryRowEl.createEl("button", { text: "Restart" });
-    const clearBtn = primaryRowEl.createEl("button", { text: "Clear" });
-    this.setButtonIcon(startBtn, "play", "Start");
-    this.setButtonIcon(stopBtn, "square", "Stop");
-    this.setButtonIcon(restartBtn, "refresh-cw", "Restart");
-    this.setButtonIcon(clearBtn, "eraser", "Clear");
-    startBtn.addClass("claude-cli-btn-primary");
-    stopBtn.addClass("claude-cli-btn-danger");
-
-    const secondaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
-    const mentionBtn = secondaryRowEl.createEl("button", { text: "@active file" });
-    const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@active folder" });
-    const automationsBtn = secondaryRowEl.createEl("button", { text: "Automations" });
-    this.setButtonIcon(mentionBtn, "file-plus", "@active file");
-    this.setButtonIcon(folderMentionBtn, "folder-plus", "@active folder");
-    this.setButtonIcon(automationsBtn, "calendar-clock", "Automations");
-    mentionBtn.addClass("claude-cli-btn-info");
-    folderMentionBtn.addClass("claude-cli-btn-info");
-    automationsBtn.addClass("claude-cli-btn-info");
-
-    this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
-
-    startBtn.addEventListener("click", () => this.startClaudeProcess());
-    stopBtn.addEventListener("click", () => this.stopClaudeProcess());
-    restartBtn.addEventListener("click", () => this.restartClaudeProcess());
-    clearBtn.addEventListener("click", () => this.terminal?.clear());
-    mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
-    folderMentionBtn.addEventListener("click", () => this.insertActiveFolderMention());
-    automationsBtn.addEventListener("click", () => {
-      new AutomationsModal(this.app, this.plugin).open();
-    });
-    this.runtimeSelect.addEventListener("change", () => {
-      if (this.runtimeSelect) {
-        this.setRuntime(this.runtimeSelect.value);
-      }
-    });
-
-    this.terminalHostEl = this.contentEl.createDiv({ cls: "claude-cli-terminal" });
-
-    this.terminal = new Terminal({
-      cursorBlink: true,
-      convertEol: true,
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
-      fontSize: 13,
-      scrollback: 3000,
-      theme: {
-        background: "#0f1115",
-        foreground: "#e6e6e6"
-      }
-    });
-
-    this.fitAddon = new FitAddon();
-    this.terminal.loadAddon(this.fitAddon);
-    this.terminal.open(this.terminalHostEl);
-    this.fitAddon.fit();
-    this.writeSystemLine("CLI panel ready.");
-
-    this.terminal.onData((data) => {
-      this.processHandle?.write(data);
-    });
-
-    this.resizeObserver = new ResizeObserver(() => {
-      this.fitAddon?.fit();
-      if (this.processHandle && this.terminal) {
-        this.processHandle.resize?.(
-          Math.max(20, this.terminal.cols || 120),
-          Math.max(10, this.terminal.rows || 30)
-        );
-      }
-    });
-    this.resizeObserver.observe(this.contentEl);
-
-    if (this.plugin.settings.autoStart) {
-      this.startClaudeProcess();
-    } else {
-      this.writeSystemLine(`Auto-start is disabled. Click start to launch ${this.getRuntimeLabel()}.`);
-      this.setStatus("Idle");
+function createSessionTerminal(): { terminal: Terminal; fitAddon: FitAddon } {
+  const terminal = new Terminal({
+    cursorBlink: true,
+    convertEol: true,
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
+    fontSize: 13,
+    scrollback: 3000,
+    theme: {
+      background: "#0f1115",
+      foreground: "#e6e6e6"
     }
+  });
+  const fitAddon = new FitAddon();
+  terminal.loadAddon(fitAddon);
+  return { terminal, fitAddon };
+}
 
-    return Promise.resolve();
+/**
+ * One independent CLI session: its own PTY process and its own xterm terminal
+ * rendered into a dedicated host element. The view owns a list of these and
+ * shows one at a time via tabs.
+ */
+class CliSession {
+  readonly id: string;
+  runtimeId: string;
+  label: string;
+  origin: SessionOrigin;
+  readonly terminal: Terminal;
+  readonly fitAddon: FitAddon;
+  readonly hostEl: HTMLDivElement;
+  processHandle: ProcessAdapter | null = null;
+  status = "Idle";
+  pendingRestart = false;
+
+  private ready = false;
+  whenReady!: Promise<void>;
+  private resolveReady: (() => void) | null = null;
+  private readyTimer: number | null = null;
+
+  constructor(params: {
+    id: string;
+    runtimeId: string;
+    label: string;
+    origin: SessionOrigin;
+    terminal: Terminal;
+    fitAddon: FitAddon;
+    hostEl: HTMLDivElement;
+  }) {
+    this.id = params.id;
+    this.runtimeId = params.runtimeId;
+    this.label = params.label;
+    this.origin = params.origin;
+    this.terminal = params.terminal;
+    this.fitAddon = params.fitAddon;
+    this.hostEl = params.hostEl;
+    this.resetReady();
   }
 
-  isProcessRunning(): boolean {
-    return this.processHandle !== null && this.runningRuntimeId !== null;
+  /** Arm a fresh readiness promise for a (re)spawn. */
+  resetReady(): void {
+    this.ready = false;
+    if (this.readyTimer !== null) {
+      activeWindow.clearTimeout(this.readyTimer);
+      this.readyTimer = null;
+    }
+    this.whenReady = new Promise<void>((resolve) => {
+      this.resolveReady = resolve;
+    });
   }
 
-  getRunningRuntimeId(): string | null {
-    return this.runningRuntimeId;
+  markReady(): void {
+    if (this.ready) {
+      return;
+    }
+    this.ready = true;
+    if (this.readyTimer !== null) {
+      activeWindow.clearTimeout(this.readyTimer);
+      this.readyTimer = null;
+    }
+    this.resolveReady?.();
+    this.resolveReady = null;
   }
 
-  matchesRuntime(target: string): boolean {
-    if (!this.runningRuntimeId) return false;
-    if (this.runningRuntimeId === target) return true;
-    const runtime = this.plugin.settings.runtimes.find((r) => r.id === this.runningRuntimeId);
-    return runtime ? runtime.name.trim().toLowerCase() === target.trim().toLowerCase() : false;
+  armReadyFallback(delayMs: number): void {
+    if (this.readyTimer !== null) {
+      activeWindow.clearTimeout(this.readyTimer);
+    }
+    this.readyTimer = activeWindow.setTimeout(() => this.markReady(), delayMs);
   }
 
-  sendAutomationPrompt(text: string, submitWithEnter: boolean): void {
+  isRunning(): boolean {
+    return this.processHandle !== null;
+  }
+
+  writeSystemLine(message: string): void {
+    this.terminal.write("\r[2K");
+    this.terminal.writeln(message);
+  }
+
+  sendPrompt(text: string, submitWithEnter: boolean): void {
     if (!this.processHandle) {
       throw new Error("CLI process is not running");
     }
@@ -299,102 +271,337 @@ class ClaudeCliView extends ItemView {
     this.writeSystemLine(`[Automation prompt injected]`);
   }
 
-  refreshRuntimeSelect(): void {
-    if (!this.runtimeSelect) {
-      return;
+  dispose(): void {
+    if (this.readyTimer !== null) {
+      activeWindow.clearTimeout(this.readyTimer);
+      this.readyTimer = null;
     }
-    this.runtimeSelect.empty();
-    const runtimes = this.plugin.settings.runtimes;
-    if (runtimes.length === 0) {
-      const placeholder = this.runtimeSelect.createEl("option", { text: "No runtime configured" });
-      placeholder.value = "";
-      this.runtimeSelect.value = "";
-      this.runtimeSelect.disabled = true;
-      return;
+    try {
+      this.terminal.dispose();
+    } catch {
+      /* ignore disposal errors */
     }
-    this.runtimeSelect.disabled = false;
-    for (const runtime of runtimes) {
-      const opt = this.runtimeSelect.createEl("option", { text: runtime.name || "(Unnamed)" });
-      opt.value = runtime.id;
-    }
-    const validSelection = runtimes.some((r) => r.id === this.plugin.settings.selectedRuntimeId);
-    this.runtimeSelect.value = validSelection
-      ? this.plugin.settings.selectedRuntimeId
-      : runtimes[0].id;
+    this.hostEl.remove();
+  }
+}
+
+class ClaudeCliView extends ItemView {
+  private plugin: ClaudeCliPlugin;
+  private sessions: CliSession[] = [];
+  private activeSessionId: string | null = null;
+  private tabBarEl: HTMLDivElement | null = null;
+  private terminalsHostEl: HTMLDivElement | null = null;
+  private emptyHintEl: HTMLDivElement | null = null;
+  private statusEl: HTMLDivElement | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+  private stopBtn: HTMLButtonElement | null = null;
+  private restartBtn: HTMLButtonElement | null = null;
+  private clearBtn: HTMLButtonElement | null = null;
+
+  constructor(leaf: WorkspaceLeaf, plugin: ClaudeCliPlugin) {
+    super(leaf);
+    this.plugin = plugin;
   }
 
-  onClose(): Promise<void> {
-    this.stopClaudeProcess();
-    this.resizeObserver?.disconnect();
-    this.resizeObserver = null;
-    this.terminal?.dispose();
-    this.terminal = null;
-    this.fitAddon = null;
-    this.statusEl = null;
+  getViewType(): string {
+    return VIEW_TYPE_CLAUDE;
+  }
+
+  getDisplayText(): string {
+    return "Any AI CLI";
+  }
+
+  getIcon(): string {
+    return "bot";
+  }
+
+  onOpen(): Promise<void> {
+    this.contentEl.empty();
+    this.contentEl.addClass("claude-cli-view");
+
+    this.tabBarEl = this.contentEl.createDiv({ cls: "claude-cli-tabbar" });
+
+    const toolbarEl = this.contentEl.createDiv({ cls: "claude-cli-toolbar" });
+    const primaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
+    const newBtn = primaryRowEl.createEl("button", { text: "New session" });
+    const stopBtn = primaryRowEl.createEl("button", { text: "Stop" });
+    const restartBtn = primaryRowEl.createEl("button", { text: "Restart" });
+    const clearBtn = primaryRowEl.createEl("button", { text: "Clear" });
+    this.setButtonIcon(newBtn, "plus", "New session");
+    this.setButtonIcon(stopBtn, "square", "Stop");
+    this.setButtonIcon(restartBtn, "refresh-cw", "Restart");
+    this.setButtonIcon(clearBtn, "eraser", "Clear");
+    newBtn.addClass("claude-cli-btn-primary");
+    stopBtn.addClass("claude-cli-btn-danger");
+    this.stopBtn = stopBtn;
+    this.restartBtn = restartBtn;
+    this.clearBtn = clearBtn;
+
+    const secondaryRowEl = toolbarEl.createDiv({ cls: "claude-cli-toolbar-row" });
+    const mentionBtn = secondaryRowEl.createEl("button", { text: "@active file" });
+    const folderMentionBtn = secondaryRowEl.createEl("button", { text: "@active folder" });
+    const automationsBtn = secondaryRowEl.createEl("button", { text: "Automations" });
+    this.setButtonIcon(mentionBtn, "file-plus", "@active file");
+    this.setButtonIcon(folderMentionBtn, "folder-plus", "@active folder");
+    this.setButtonIcon(automationsBtn, "calendar-clock", "Automations");
+    mentionBtn.addClass("claude-cli-btn-info");
+    folderMentionBtn.addClass("claude-cli-btn-info");
+    automationsBtn.addClass("claude-cli-btn-info");
+
+    this.statusEl = this.contentEl.createDiv({ cls: "claude-cli-status" });
+
+    newBtn.addEventListener("click", (evt) => this.openNewSessionMenu(evt));
+    stopBtn.addEventListener("click", () => this.stopActiveSession());
+    restartBtn.addEventListener("click", () => this.restartActiveSession());
+    clearBtn.addEventListener("click", () => this.getActiveSession()?.terminal.clear());
+    mentionBtn.addEventListener("click", () => this.insertActiveFileMention());
+    folderMentionBtn.addEventListener("click", () => this.insertActiveFolderMention());
+    automationsBtn.addEventListener("click", () => {
+      new AutomationsModal(this.app, this.plugin).open();
+    });
+
+    this.terminalsHostEl = this.contentEl.createDiv({ cls: "claude-cli-terminals" });
+    this.emptyHintEl = this.terminalsHostEl.createDiv({ cls: "claude-cli-empty-hint" });
+    this.emptyHintEl.setText("No session running. Use the + button to launch a runtime.");
+
+    this.resizeObserver = new ResizeObserver(() => {
+      const session = this.getActiveSession();
+      if (!session) {
+        return;
+      }
+      session.fitAddon.fit();
+      if (session.processHandle) {
+        session.processHandle.resize?.(
+          Math.max(20, session.terminal.cols || 120),
+          Math.max(10, session.terminal.rows || 30)
+        );
+      }
+    });
+    this.resizeObserver.observe(this.contentEl);
+
+    this.renderTabBar();
+    this.updateEmptyState();
+    this.updateToolbarState();
+
+    if (this.plugin.settings.autoStart) {
+      const runtime = this.getSelectedRuntime();
+      if (runtime) {
+        this.startSession({ runtimeId: runtime.id, origin: "manual" });
+      } else {
+        this.setStatus("No runtime configured. Add one in plugin settings.");
+      }
+    } else {
+      this.setStatus("Idle");
+    }
+
     return Promise.resolve();
   }
 
-  startClaudeProcess(runtimeIdOverride?: string): void {
-    if (!this.terminal) {
-      return;
-    }
-    const targetRuntime = runtimeIdOverride
-      ? this.plugin.settings.runtimes.find((r) => r.id === runtimeIdOverride)
-      : this.getSelectedRuntime();
-    if (!targetRuntime) {
-      const message = "No runtime configured. Add one in plugin settings.";
-      this.writeSystemLine(`[${message}]`);
-      this.setStatus(message);
-      new Notice(message, 6000);
-      return;
-    }
-
-    const targetLabel = targetRuntime.name || "(Unnamed runtime)";
-
-    if (this.processHandle) {
-      if (this.runningRuntimeId === targetRuntime.id) {
-        this.writeSystemLine(`[${targetLabel} process is already running]`);
-        this.setStatus("Already running");
-      } else {
-        this.pendingStartRuntimeId = targetRuntime.id;
-        this.writeSystemLine(`[Switch requested: ${targetLabel}. Stopping current process first...]`);
-        this.stopClaudeProcess(true);
+  onClose(): Promise<void> {
+    for (const session of this.sessions) {
+      try {
+        session.processHandle?.kill("SIGTERM");
+      } catch {
+        /* ignore */
       }
-      return;
+      session.dispose();
     }
+    this.sessions = [];
+    this.activeSessionId = null;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    this.statusEl = null;
+    this.tabBarEl = null;
+    this.terminalsHostEl = null;
+    this.emptyHintEl = null;
+    return Promise.resolve();
+  }
 
-    const command = (targetRuntime.command || "").trim();
-    if (!command) {
-      const message = `Runtime "${targetLabel}" has an empty command. Set one in plugin settings.`;
-      this.writeSystemLine(`[${message}]`);
+  getActiveSession(): CliSession | null {
+    if (!this.activeSessionId) {
+      return null;
+    }
+    return this.findSession(this.activeSessionId);
+  }
+
+  findSession(id: string): CliSession | null {
+    return this.sessions.find((s) => s.id === id) ?? null;
+  }
+
+  isProcessRunning(): boolean {
+    return this.sessions.some((s) => s.isRunning());
+  }
+
+  startSession(params: { runtimeId: string; origin: SessionOrigin }): CliSession | null {
+    if (!this.terminalsHostEl) {
+      return null;
+    }
+    const runtime = this.plugin.settings.runtimes.find((r) => r.id === params.runtimeId);
+    if (!runtime) {
+      const message = "Runtime not configured. Add one in plugin settings.";
       this.setStatus(message);
       new Notice(message, 6000);
+      return null;
+    }
+    if (!canOpenSession(this.sessions.length, this.plugin.settings.maxConcurrentSessions)) {
+      const message = `Session limit reached (${this.plugin.settings.maxConcurrentSessions}). Close a tab first.`;
+      this.setStatus(message);
+      new Notice(message, 6000);
+      return null;
+    }
+    const command = (runtime.command || "").trim();
+    if (!command) {
+      const message = `Runtime "${runtime.name || "(Unnamed)"}" has an empty command. Set one in plugin settings.`;
+      this.setStatus(message);
+      new Notice(message, 6000);
+      return null;
+    }
+
+    const hostEl = this.terminalsHostEl.createDiv({ cls: "claude-cli-terminal" });
+    const { terminal, fitAddon } = createSessionTerminal();
+    terminal.open(hostEl);
+    fitAddon.fit();
+    const label = nextSessionLabel(
+      this.sessions.map((s) => s.label),
+      runtime.name || "(Unnamed)"
+    );
+    const session = new CliSession({
+      id: randomUUID(),
+      runtimeId: runtime.id,
+      label,
+      origin: params.origin,
+      terminal,
+      fitAddon,
+      hostEl
+    });
+    this.sessions.push(session);
+    terminal.onData((data) => session.processHandle?.write(data));
+    session.writeSystemLine(`CLI session ready (${label}).`);
+
+    // Activate the new tab before spawning so the terminal is visible and sized.
+    this.setActiveSession(session.id);
+    this.spawnIntoSession(session, runtime);
+    this.renderTabBar();
+    this.updateToolbarState();
+    return session;
+  }
+
+  closeSession(id: string): void {
+    const index = this.sessions.findIndex((s) => s.id === id);
+    if (index < 0) {
       return;
+    }
+    const session = this.sessions[index];
+    try {
+      session.processHandle?.kill("SIGTERM");
+    } catch {
+      /* ignore */
+    }
+    session.processHandle = null;
+    session.markReady();
+    session.dispose();
+    this.sessions.splice(index, 1);
+    if (this.activeSessionId === id) {
+      this.activeSessionId = null;
+      const next = this.sessions[index] ?? this.sessions[index - 1] ?? null;
+      if (next) {
+        this.setActiveSession(next.id);
+      }
+    }
+    this.renderTabBar();
+    this.updateEmptyState();
+    this.updateToolbarState();
+    if (!this.getActiveSession()) {
+      this.setStatus("Idle");
+    }
+  }
+
+  setActiveSession(id: string): void {
+    const session = this.findSession(id);
+    if (!session) {
+      return;
+    }
+    this.activeSessionId = id;
+    for (const s of this.sessions) {
+      s.hostEl.toggleClass("is-hidden", s.id !== id);
+    }
+    this.updateEmptyState();
+    this.renderTabBar();
+    // A hidden terminal cannot lay out; refit + resize now that it is visible,
+    // otherwise xterm output degrades to letter-per-line.
+    session.fitAddon.fit();
+    session.processHandle?.resize?.(
+      Math.max(20, session.terminal.cols || 120),
+      Math.max(10, session.terminal.rows || 30)
+    );
+    session.terminal.focus();
+    this.setStatus(session.status);
+    this.updateToolbarState();
+  }
+
+  sendAutomationPromptTo(sessionId: string, text: string, submitWithEnter: boolean): void {
+    const session = this.findSession(sessionId);
+    if (!session) {
+      throw new Error("Session no longer exists");
+    }
+    session.sendPrompt(text, submitWithEnter);
+  }
+
+  // Called by the plugin when the configured runtimes change in settings.
+  refreshRuntimeSelect(): void {
+    this.renderTabBar();
+  }
+
+  private spawnIntoSession(session: CliSession, runtime: CliRuntimeConfig): boolean {
+    const label = session.label;
+    const command = (runtime.command || "").trim();
+    if (!command) {
+      const message = `Runtime "${runtime.name || "(Unnamed)"}" has an empty command. Set one in plugin settings.`;
+      session.writeSystemLine(`[${message}]`);
+      session.status = message;
+      if (this.activeSessionId === session.id) {
+        this.setStatus(message);
+      }
+      session.markReady();
+      return false;
     }
 
     const codexLike = isCodexLikeCommand(command);
     if (codexLike) {
-      this.resetTerminalDisplay();
+      session.terminal.reset();
+      session.fitAddon.fit();
     }
 
-    this.writeSystemLine(`[Starting: ${command}]`);
-    this.setStatus(`Starting in vault folder (${process.platform})...`);
+    session.resetReady();
+    session.writeSystemLine(`[Starting: ${command}]`);
+    session.status = `Starting in vault folder (${process.platform})...`;
+    if (this.activeSessionId === session.id) {
+      this.setStatus(session.status);
+    }
 
     try {
       const vaultPath = getVaultBasePath(this.app);
       if (!vaultPath) {
-        const message = `Unable to resolve current vault path. ${targetLabel} was not started.`;
-        this.writeSystemLine(`[${message}]`);
-        this.setStatus(message);
+        const message = `Unable to resolve current vault path. ${label} was not started.`;
+        session.writeSystemLine(`[${message}]`);
+        session.status = message;
+        if (this.activeSessionId === session.id) {
+          this.setStatus(message);
+        }
         new Notice(message, 6000);
-        return;
+        session.markReady();
+        return false;
       }
       if (!fs.existsSync(vaultPath)) {
         const message = `Vault path does not exist: ${vaultPath}`;
-        this.writeSystemLine(`[${message}]`);
-        this.setStatus(message);
+        session.writeSystemLine(`[${message}]`);
+        session.status = message;
+        if (this.activeSessionId === session.id) {
+          this.setStatus(message);
+        }
         new Notice(message, 6000);
-        return;
+        session.markReady();
+        return false;
       }
 
       const shellEnv = getShellEnv();
@@ -409,62 +616,193 @@ class ClaudeCliView extends ItemView {
         command,
         cwd: vaultPath,
         env: shellEnv,
-        cols: Math.max(20, this.terminal.cols || 120),
-        rows: Math.max(10, this.terminal.rows || 30),
+        cols: Math.max(20, session.terminal.cols || 120),
+        rows: Math.max(10, session.terminal.rows || 30),
         nodeExecutable: this.plugin.settings.nodeExecutable,
         pluginDir: this.plugin.manifest.dir,
         vaultPath
       });
-      this.processHandle = makeProxyAdapter(helperHandle);
-      this.runningRuntimeId = targetRuntime.id;
+      session.processHandle = makeProxyAdapter(helperHandle);
     } catch (error) {
       const message = `Failed to start process: ${(error as Error).message}`;
-      this.writeSystemLine(`[${message}]`);
-      this.setStatus(message);
-      new Notice(message, 7000);
-      this.processHandle = null;
-      this.runningRuntimeId = null;
-      return;
-    }
-    this.setStatus("Running");
-
-    this.processHandle.onData((data: string) => {
-      this.terminal?.write(data);
-    });
-
-    this.processHandle.onExit((exitCode, signal) => {
-      const message = `Process exited (code=${exitCode}, signal=${signal})`;
-      this.writeSystemLine(`[${message}]`);
-      this.setStatus(message);
-      this.processHandle = null;
-      this.runningRuntimeId = null;
-      const nextRuntimeId = this.pendingStartRuntimeId;
-      this.pendingStartRuntimeId = null;
-      if (nextRuntimeId) {
-        void this.startClaudeProcess(nextRuntimeId);
+      session.writeSystemLine(`[${message}]`);
+      session.status = message;
+      if (this.activeSessionId === session.id) {
+        this.setStatus(message);
       }
+      new Notice(message, 7000);
+      session.processHandle = null;
+      session.markReady();
+      return false;
+    }
+
+    session.status = "Running";
+    if (this.activeSessionId === session.id) {
+      this.setStatus("Running");
+    }
+    session.armReadyFallback(SESSION_READY_FALLBACK_MS);
+
+    session.processHandle.onData((data: string) => {
+      session.terminal.write(data);
+      session.markReady();
     });
 
-    this.fitAddon?.fit();
+    session.processHandle.onExit((exitCode, signal) => {
+      session.processHandle = null;
+      session.markReady();
+      if (session.pendingRestart) {
+        session.pendingRestart = false;
+        const current = this.plugin.settings.runtimes.find((r) => r.id === session.runtimeId);
+        if (current) {
+          this.spawnIntoSession(session, current);
+          this.renderTabBar();
+          this.updateToolbarState();
+          return;
+        }
+      }
+      const message = `Process exited (code=${exitCode}, signal=${signal})`;
+      session.writeSystemLine(`[${message}]`);
+      session.status = message;
+      if (this.activeSessionId === session.id) {
+        this.setStatus(message);
+      }
+      if (session.origin === "automation" && this.plugin.settings.autoCloseAutomationSessions) {
+        this.closeSession(session.id);
+        return;
+      }
+      this.renderTabBar();
+      this.updateToolbarState();
+    });
+
+    if (this.activeSessionId === session.id) {
+      session.fitAddon.fit();
+    }
+    return true;
   }
 
-  stopClaudeProcess(preservePendingStart = false): void {
-    if (!this.processHandle) {
+  private stopActiveSession(): void {
+    const session = this.getActiveSession();
+    if (!session || !session.processHandle) {
       return;
     }
-    if (!preservePendingStart) {
-      this.pendingStartRuntimeId = null;
-    }
-
-    this.writeSystemLine(`[Stopping ${this.getRunningRuntimeLabel()} process...]`);
+    session.writeSystemLine(`[Stopping ${session.label} process...]`);
+    session.status = "Stopping...";
     this.setStatus("Stopping...");
     try {
-      this.processHandle.kill("SIGTERM");
+      session.processHandle.kill("SIGTERM");
     } catch (error) {
       const message = `Failed to stop process: ${(error as Error).message}`;
-      this.writeSystemLine(`[${message}]`);
+      session.writeSystemLine(`[${message}]`);
+      session.status = message;
       this.setStatus(message);
       new Notice(message, 6000);
+    }
+  }
+
+  private restartActiveSession(): void {
+    const session = this.getActiveSession();
+    if (!session) {
+      return;
+    }
+    const runtime = this.plugin.settings.runtimes.find((r) => r.id === session.runtimeId);
+    if (!runtime) {
+      new Notice("Runtime is no longer configured.", 6000);
+      return;
+    }
+    if (session.processHandle) {
+      session.pendingRestart = true;
+      session.writeSystemLine(`[Restart requested: ${session.label}]`);
+      session.status = "Restarting...";
+      this.setStatus("Restarting...");
+      try {
+        session.processHandle.kill("SIGTERM");
+      } catch {
+        session.pendingRestart = false;
+      }
+      return;
+    }
+    this.spawnIntoSession(session, runtime);
+    this.renderTabBar();
+    this.updateToolbarState();
+  }
+
+  private openNewSessionMenu(evt: MouseEvent): void {
+    const runtimes = this.plugin.settings.runtimes;
+    if (runtimes.length === 0) {
+      new Notice("No runtime configured. Add one in plugin settings.", 6000);
+      return;
+    }
+    if (runtimes.length === 1) {
+      this.startSession({ runtimeId: runtimes[0].id, origin: "manual" });
+      return;
+    }
+    const menu = new Menu();
+    for (const runtime of runtimes) {
+      menu.addItem((item) =>
+        item
+          .setTitle(runtime.name || "(Unnamed)")
+          .setIcon("terminal")
+          .onClick(() => {
+            this.startSession({ runtimeId: runtime.id, origin: "manual" });
+          })
+      );
+    }
+    menu.showAtMouseEvent(evt);
+  }
+
+  private renderTabBar(): void {
+    if (!this.tabBarEl) {
+      return;
+    }
+    this.tabBarEl.empty();
+    for (const session of this.sessions) {
+      const tabEl = this.tabBarEl.createDiv({
+        cls: `claude-cli-tab${session.id === this.activeSessionId ? " is-active" : ""}`
+      });
+      const dotCls = session.isRunning() ? "is-running" : "is-stopped";
+      tabEl.createSpan({ cls: `claude-cli-tab-dot ${dotCls}` });
+      if (session.origin === "automation") {
+        const autoIcon = tabEl.createSpan({ cls: "claude-cli-tab-auto" });
+        setIcon(autoIcon, "calendar-clock");
+      }
+      tabEl.createSpan({ text: session.label, cls: "claude-cli-tab-label" });
+      const closeEl = tabEl.createSpan({ cls: "claude-cli-tab-close" });
+      setIcon(closeEl, "x");
+      closeEl.setAttribute("aria-label", "Close session");
+      closeEl.addEventListener("click", (evt) => {
+        evt.stopPropagation();
+        this.closeSession(session.id);
+      });
+      tabEl.addEventListener("click", () => {
+        if (session.id !== this.activeSessionId) {
+          this.setActiveSession(session.id);
+        }
+      });
+    }
+    const newTabEl = this.tabBarEl.createDiv({ cls: "claude-cli-tab-new" });
+    setIcon(newTabEl, "plus");
+    newTabEl.setAttribute("aria-label", "New session");
+    newTabEl.addEventListener("click", (evt) => this.openNewSessionMenu(evt));
+  }
+
+  private updateEmptyState(): void {
+    if (!this.emptyHintEl) {
+      return;
+    }
+    this.emptyHintEl.toggleClass("is-hidden", this.sessions.length > 0);
+  }
+
+  private updateToolbarState(): void {
+    const session = this.getActiveSession();
+    const running = session?.isRunning() ?? false;
+    if (this.stopBtn) {
+      this.stopBtn.disabled = !running;
+    }
+    if (this.restartBtn) {
+      this.restartBtn.disabled = !session;
+    }
+    if (this.clearBtn) {
+      this.clearBtn.disabled = !session;
     }
   }
 
@@ -474,135 +812,49 @@ class ClaudeCliView extends ItemView {
 
   private getSelectedRuntime(): CliRuntimeConfig | null {
     const { runtimes, selectedRuntimeId } = this.plugin.settings;
-    return (
-      runtimes.find((r) => r.id === selectedRuntimeId) ??
-      runtimes[0] ??
-      null
-    );
-  }
-
-  private getRuntimeLabel(runtimeId?: string): string {
-    if (runtimeId) {
-      const match = this.plugin.settings.runtimes.find((r) => r.id === runtimeId);
-      return match?.name || "(Unnamed runtime)";
-    }
-    return this.getSelectedRuntime()?.name || "(No runtime)";
-  }
-
-  private getRunningRuntimeLabel(): string {
-    if (!this.runningRuntimeId) {
-      return this.getRuntimeLabel();
-    }
-    return this.getRuntimeLabel(this.runningRuntimeId);
-  }
-
-  private restartClaudeProcess(): void {
-    const target = this.getSelectedRuntime();
-    if (!target) {
-      void this.startClaudeProcess();
-      return;
-    }
-    if (!this.processHandle) {
-      void this.startClaudeProcess(target.id);
-      return;
-    }
-    this.pendingStartRuntimeId = target.id;
-    this.writeSystemLine(`[Restart requested: ${target.name}]`);
-    this.stopClaudeProcess(true);
-  }
-
-  private resetTerminalDisplay(): void {
-    if (!this.terminal) {
-      return;
-    }
-
-    this.terminal.reset();
-    this.fitAddon?.fit();
-  }
-
-  private setRuntime(runtimeId: string): void {
-    if (!runtimeId) {
-      return;
-    }
-    const exists = this.plugin.settings.runtimes.some((r) => r.id === runtimeId);
-    if (!exists) {
-      this.refreshRuntimeSelect();
-      return;
-    }
-    if (this.plugin.settings.selectedRuntimeId === runtimeId) {
-      return;
-    }
-
-    this.plugin.settings.selectedRuntimeId = runtimeId;
-    void this.plugin.saveSettings();
-    this.refreshRuntimeSelect();
-
-    const selectedLabel = this.getRuntimeLabel();
-    this.writeSystemLine(`[Runtime selected: ${selectedLabel}]`);
-    if (this.processHandle) {
-      if (this.plugin.settings.autoRestartOnRuntimeSwitch) {
-        this.setStatus(`Restarting to ${selectedLabel}...`);
-        this.restartClaudeProcess();
-        return;
-      }
-      this.setStatus(`${selectedLabel} selected (restart to apply)`);
-      return;
-    }
-    this.setStatus(`${selectedLabel} selected`);
+    return runtimes.find((r) => r.id === selectedRuntimeId) ?? runtimes[0] ?? null;
   }
 
   private insertActiveFileMention(): void {
+    const session = this.getActiveSession();
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
       const message = "No active file detected.";
-      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 4000);
       return;
     }
-    if (!this.processHandle) {
-      const message = `${this.getRuntimeLabel()} process is not running. Start it before inserting a file mention.`;
-      this.writeSystemLine(`[${message}]`);
+    if (!session || !session.processHandle) {
+      const message = "No running session. Start one before inserting a file mention.";
       this.setStatus(message);
       new Notice(message, 5000);
       return;
     }
-
     const mention = formatActiveFileMention(activeFile.path);
-    this.processHandle.write(mention);
-    this.terminal?.focus();
+    session.processHandle.write(mention);
+    session.terminal.focus();
     this.setStatus(`Inserted ${mention.trim()}`);
   }
 
   private insertActiveFolderMention(): void {
+    const session = this.getActiveSession();
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
       const message = "No active file detected.";
-      this.writeSystemLine(`[${message}]`);
       this.setStatus(message);
       new Notice(message, 4000);
       return;
     }
-    if (!this.processHandle) {
-      const message = `${this.getRuntimeLabel()} process is not running. Start it before inserting a folder mention.`;
-      this.writeSystemLine(`[${message}]`);
+    if (!session || !session.processHandle) {
+      const message = "No running session. Start one before inserting a folder mention.";
       this.setStatus(message);
       new Notice(message, 5000);
       return;
     }
-
     const mention = formatActiveFolderMention(activeFile.path);
-    this.processHandle.write(mention);
-    this.terminal?.focus();
+    session.processHandle.write(mention);
+    session.terminal.focus();
     this.setStatus(`Inserted ${mention.trim()}`);
-  }
-
-  private writeSystemLine(message: string): void {
-    if (!this.terminal) {
-      return;
-    }
-    this.terminal.write("\r\u001b[2K");
-    this.terminal.writeln(message);
   }
 
   private setButtonIcon(buttonEl: HTMLButtonElement, iconName: string, label: string): void {
@@ -771,9 +1023,18 @@ export default class ClaudeCliPlugin extends Plugin {
       source
     } as const;
 
-    const view = this.findRunnableView();
-    if (!view) {
-      const reason = "No CLI is running";
+    // Each automation run spawns its own session/tab so runs execute in
+    // parallel. Resolve the runtime by the declared name/id, or fall back to
+    // the default runtime when none is declared.
+    const runtime = resolveRuntimeForAutomation(
+      this.settings.runtimes,
+      entry.runtime,
+      this.settings.selectedRuntimeId
+    );
+    if (!runtime) {
+      const reason = entry.runtime
+        ? `Runtime "${entry.runtime}" not configured`
+        : "No runtime configured";
       this.recordHistory({ ...baseRecord, status: "skipped", reason });
       if (source === "manual") {
         new Notice(`Automation "${entry.name}" skipped — ${reason.toLowerCase()}.`, 5000);
@@ -781,25 +1042,29 @@ export default class ClaudeCliPlugin extends Plugin {
       return;
     }
 
-    if (entry.runtime) {
-      const runtimeMatches = view.matchesRuntime(entry.runtime);
-      if (!runtimeMatches) {
-        const reason = `Runtime mismatch (expected "${entry.runtime}")`;
-        this.recordHistory({ ...baseRecord, status: "skipped", reason });
-        if (source === "manual") {
-          new Notice(`Automation "${entry.name}" skipped — ${reason.toLowerCase()}.`, 5000);
-        }
-        return;
+    const started = await this.activateViewAndStartSession({
+      runtimeId: runtime.id,
+      origin: "automation"
+    });
+    if (!started) {
+      const reason = "Could not open a session";
+      this.recordHistory({ ...baseRecord, status: "error", reason });
+      if (source === "manual") {
+        new Notice(`Automation "${entry.name}" failed — ${reason.toLowerCase()}.`, 5000);
       }
+      return;
     }
 
+    const { view, session } = started;
     try {
-      view.sendAutomationPrompt(entry.body, entry.appendNewline);
-      const runtimeId = view.getRunningRuntimeId();
+      // Wait until the freshly spawned CLI has booted (first output or a short
+      // fallback) so the prompt lands in its input box, not before it exists.
+      await session.whenReady;
+      view.sendAutomationPromptTo(session.id, entry.body, entry.appendNewline);
       this.recordHistory({
         ...baseRecord,
         status: "ran",
-        runtimeId,
+        runtimeId: session.runtimeId,
         promptPreview: buildPromptPreview(entry.body)
       });
       this.settings.automationsLastRun[entry.path] = now;
@@ -817,15 +1082,21 @@ export default class ClaudeCliPlugin extends Plugin {
     }
   }
 
-  private findRunnableView(): ClaudeCliView | null {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE);
-    for (const leaf of leaves) {
-      const view = leaf.view;
-      if (view instanceof ClaudeCliView && view.isProcessRunning()) {
-        return view;
-      }
+  private async activateViewAndStartSession(params: {
+    runtimeId: string;
+    origin: SessionOrigin;
+  }): Promise<{ view: ClaudeCliView; session: CliSession } | null> {
+    await this.activateView();
+    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0];
+    const view = leaf?.view;
+    if (!(view instanceof ClaudeCliView)) {
+      return null;
     }
-    return null;
+    const session = view.startSession(params);
+    if (!session) {
+      return null;
+    }
+    return { view, session };
   }
 
   recordHistory(record: AutomationRunRecord): void {
@@ -908,7 +1179,17 @@ export default class ClaudeCliPlugin extends Plugin {
         Number.isInteger(raw.automationsHistoryLimit) &&
         raw.automationsHistoryLimit > 0
           ? raw.automationsHistoryLimit
-          : DEFAULT_SETTINGS.automationsHistoryLimit
+          : DEFAULT_SETTINGS.automationsHistoryLimit,
+      autoCloseAutomationSessions:
+        typeof raw.autoCloseAutomationSessions === "boolean"
+          ? raw.autoCloseAutomationSessions
+          : DEFAULT_SETTINGS.autoCloseAutomationSessions,
+      maxConcurrentSessions:
+        typeof raw.maxConcurrentSessions === "number" &&
+        Number.isInteger(raw.maxConcurrentSessions) &&
+        raw.maxConcurrentSessions >= 0
+          ? raw.maxConcurrentSessions
+          : DEFAULT_SETTINGS.maxConcurrentSessions
     };
   }
 
@@ -978,20 +1259,37 @@ class ClaudeCliSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Auto-restart on runtime switch")
-      .setDesc("Automatically restart the running process when changing the runtime from the sidebar dropdown.")
+      .setName("Auto-close automation sessions")
+      .setDesc("When an automation-spawned session's process exits, close its tab automatically so tabs don't pile up.")
       .addToggle((toggle) =>
         toggle
-          .setValue(this.plugin.settings.autoRestartOnRuntimeSwitch)
+          .setValue(this.plugin.settings.autoCloseAutomationSessions)
           .onChange(async (value) => {
-            this.plugin.settings.autoRestartOnRuntimeSwitch = value;
+            this.plugin.settings.autoCloseAutomationSessions = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Max concurrent sessions")
+      .setDesc("Maximum number of session tabs that can run at once (0 = unlimited). Protects against runaway automation spawns.")
+      .addText((text) =>
+        text
+          .setPlaceholder("8")
+          .setValue(String(this.plugin.settings.maxConcurrentSessions))
+          .onChange(async (value) => {
+            const parsed = Number.parseInt(value.trim(), 10);
+            this.plugin.settings.maxConcurrentSessions =
+              Number.isInteger(parsed) && parsed >= 0
+                ? parsed
+                : DEFAULT_SETTINGS.maxConcurrentSessions;
             await this.plugin.saveSettings();
           })
       );
 
     new Setting(containerEl).setName("Runtimes").setHeading();
     containerEl.createEl("p", {
-      text: "Configure the runtimes that show up in the sidebar dropdown. Each entry needs a display name and a launch command. Add as many as you want.",
+      text: "Configure the runtimes available from the sidebar new-session menu. Each entry needs a display name and a launch command. Add as many as you want.",
       cls: "setting-item-description"
     });
 

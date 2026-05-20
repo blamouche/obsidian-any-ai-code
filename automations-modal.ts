@@ -114,8 +114,6 @@ export class AutomationsModal extends Modal {
       return;
     }
 
-    const runnable = this.isAnyViewRunning();
-
     const table = host.createEl("table", { cls: "any-ai-cli-am-table" });
     const thead = table.createEl("thead").createEl("tr");
     for (const label of ["Name", "Schedule", "Last run", "Next run", "Status", "Actions"]) {
@@ -150,10 +148,7 @@ export class AutomationsModal extends Modal {
 
       const actionsCell = tr.createEl("td", { cls: "any-ai-cli-am-actions" });
       const runBtn = actionsCell.createEl("button", { text: "Run now" });
-      runBtn.disabled = !runnable;
-      if (!runnable) {
-        runBtn.setAttribute("title", "Start a CLI in the sidebar panel first.");
-      }
+      runBtn.setAttribute("title", "Open a new session tab and send this prompt.");
       runBtn.addEventListener("click", () => {
         void this.plugin.triggerAutomation(entry, "manual");
       });
@@ -211,14 +206,6 @@ export class AutomationsModal extends Modal {
         li.createSpan({ text: detail, cls: "any-ai-cli-am-history-detail" });
       }
     }
-  }
-
-  private isAnyViewRunning(): boolean {
-    const leaves = this.app.workspace.getLeavesOfType("claude-cli-view");
-    return leaves.some((leaf) => {
-      const view = leaf.view as unknown as { isProcessRunning?: () => boolean };
-      return typeof view?.isProcessRunning === "function" && view.isProcessRunning();
-    });
   }
 
   private async exportHistory(history: AutomationRunRecord[]): Promise<void> {

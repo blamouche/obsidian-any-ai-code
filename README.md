@@ -4,16 +4,17 @@
 
 Run any local AI coding CLI — Claude, Codex, or your own — inside a right sidebar terminal in Obsidian.
 
-The plugin embeds a real PTY-backed terminal in the sidebar and lets you declare an unlimited list of CLI runtimes from settings (each with a display name and a launch command). Pick one from a dropdown to start it in your active vault folder, switch between them on the fly, and inject the active file or folder as a mention with one click. You can also schedule reusable prompts: drop markdown files in a vault folder and the plugin fires them into the running CLI on an interval or cron — or run them on demand from the Automations panel, with a per-run history you can export.
+The plugin embeds a real PTY-backed terminal in the sidebar and lets you declare an unlimited list of CLI runtimes from settings (each with a display name and a launch command). Open as many sessions as you like — each runs in its own tab with its own process, so several runtimes (or several instances of the same one) run in parallel in a single panel. Launch sessions in your active vault folder, switch tabs on the fly, and inject the active file or folder as a mention with one click. You can also schedule reusable prompts: drop markdown files in a vault folder and the plugin fires each one into its own fresh session tab on an interval or cron — or run them on demand from the Automations panel, with a per-run history you can export.
 
 ## Features
 
 - Dedicated sidebar view with an embedded `xterm` terminal.
-- **Customizable runtime list** — declare any number of CLI runtimes from settings (Claude and Codex are pre-populated; add Aider, custom wrappers, anything on `PATH`) and switch between them via a sidebar dropdown.
-- One-click `@active file` and `@active folder` buttons that insert the current note path (or its parent folder) as a mention in the running CLI's stdin.
-- **Automations** — drop markdown files (prompt + frontmatter schedule) in a vault folder and have them fired into the running CLI on an `interval` or `cron`, or run them manually from a modal with a per-run history log.
-- Process controls in the toolbar: `Start`, `Stop`, `Restart`, `Clear`.
-- Launches the selected runtime in the **current active vault folder** so the AI sees your notes as the working tree.
+- **Parallel sessions in tabs** — run multiple runtimes (or multiple instances of the same one) side by side, each in its own tab with its own process. Switch tabs to bring a session to the front; background sessions keep running. A `+` control opens a new session from any configured runtime.
+- **Customizable runtime list** — declare any number of CLI runtimes from settings (Claude and Codex are pre-populated; add Aider, custom wrappers, anything on `PATH`).
+- One-click `@active file` and `@active folder` buttons that insert the current note path (or its parent folder) as a mention in the active session's stdin.
+- **Automations** — drop markdown files (prompt + frontmatter schedule) in a vault folder and have each fired into its own new session tab on an `interval` or `cron`, or run them manually from a modal with a per-run history log.
+- Process controls in the toolbar act on the active tab: `New session`, `Stop`, `Restart`, `Clear`.
+- Launches each session in the **current active vault folder** so the AI sees your notes as the working tree.
 - Resilient PTY stack with multi-tier fallbacks (`node-pty` → Python PTY bridge → direct pipe → `script`) so it works on macOS, Linux, and Windows.
 - Visible runtime status (`Status: ...`) and clear error reporting in the panel.
 
@@ -83,17 +84,17 @@ The community-store auto-install and the release zip both ship only the three ca
 ## Usage
 
 1. Click the bot ribbon icon, or run the command palette entry **`Open panel`**, to reveal the panel on the right.
-2. Use the runtime dropdown on the first toolbar row to pick which CLI to launch (Claude, Codex, or any custom entry you added).
-3. Click `Start` to launch the selected runtime in the active vault folder.
-4. While the CLI is running:
+2. Click `New session` (or the `+` at the end of the tab bar) and pick a runtime to launch it in the active vault folder. With auto-start enabled, the default runtime opens automatically as the first session.
+3. Open more sessions the same way — each gets its own tab and process, so runtimes run in parallel. Tabs of the same runtime are disambiguated (`Claude`, `Claude (2)`, …).
+4. Click a tab to bring its session to the front; the `×` on a tab closes that session (and kills its process). A status dot shows whether each session is running.
+5. The toolbar acts on the active tab:
    - Click `@active file` or `@active folder` (second toolbar row) to insert the current note path or its parent folder as a mention.
-   - Click `Restart` to relaunch, `Stop` to terminate, `Clear` to wipe the terminal output.
-5. Switching the dropdown to another runtime while a process is running automatically restarts it on the new CLI (configurable in settings).
+   - Click `Restart` to relaunch the active session's runtime in place, `Stop` to terminate it, `Clear` to wipe its terminal output.
 6. Click `Automations` (second toolbar row) to open the Automations modal: run any prompt manually with **Run now**, or browse the **History** tab to see what fired and when.
 
 ## Automations
 
-Automations let you store reusable prompts as markdown files in your vault and have the plugin send them to the running CLI either on a schedule (`interval` or `cron`) or manually from the **Automations** modal.
+Automations let you store reusable prompts as markdown files in your vault. When an automation fires (on a schedule or manually), the plugin opens a **new session tab** for the target runtime and sends the prompt to it — so scheduled runs execute in parallel without disturbing your other sessions.
 
 ### Setup
 
@@ -113,7 +114,7 @@ name: Daily summary           # optional, defaults to the filename
 enabled: true                 # optional, defaults to true
 interval: 60                  # minutes — exclusive with `cron`
 # cron: "0 9 * * 1-5"         # standard 5-field cron — exclusive with `interval`
-runtime: claude               # optional — only fire if this runtime id or display name is running
+runtime: claude               # optional — runtime id or display name to spawn; omit to use the default runtime
 appendNewline: true           # optional, defaults to true (adds Enter so the CLI executes the prompt)
 ---
 
@@ -123,27 +124,29 @@ Summarize my notes from the last 24h and propose three priorities for today.
 Rules:
 
 - Exactly one of `interval` or `cron` must be set. `interval` is in whole minutes (>= 1). `cron` uses standard 5-field syntax (`cron-parser`).
-- `enabled: false` keeps the entry visible in the modal but skips scheduling and disables the **Run now** button.
+- `enabled: false` keeps the entry visible in the modal but skips scheduling (you can still trigger it with **Run now**).
 - The prompt is everything after the closing `---` (trimmed).
-- If the configured `runtime` does not match the currently running CLI, the run is skipped and logged in History.
-- If no CLI is running when a scheduled run is due, the run is skipped (the plugin never auto-starts a CLI for you).
+- The `runtime` field selects which runtime to spawn, matched by id or display name. If it names a runtime that is not configured, the run is skipped and logged in History.
+- If `runtime` is omitted, the automation spawns the **default runtime** (set in plugin settings).
+- Each run opens its own session tab. With **Auto-close automation sessions** enabled (default), the tab closes when the process exits so tabs don't accumulate.
 
 ### Manual runs and history
 
 The **Automations** toolbar button opens a modal with two tabs:
 
-- **Automations** — list of parsed entries with schedule, last run, next run, status badge, and a **Run now** button per row (disabled when no CLI is running). Parse errors are shown at the top with file paths and reasons.
+- **Automations** — list of parsed entries with schedule, last run, next run, status badge, and a **Run now** button per row (always enabled — it opens a new session tab and sends the prompt). Parse errors are shown at the top with file paths and reasons.
 - **History** — chronological log of every fired run (or skip / error), capped at 200 entries by default. You can **Clear history** or **Export as markdown** to create a snapshot note in the vault.
 
 ## Plugin Settings
 
 General:
 
-- **Default runtime** — which configured runtime is selected when the panel opens (and used by auto-start).
-- **Auto-start** — start the default runtime automatically when the panel opens.
-- **Auto-restart on runtime switch** — when you change the runtime from the sidebar dropdown while a process is running, restart it immediately to apply the new selection.
+- **Default runtime** — which configured runtime opens as the first session on auto-start, and which automations use when they declare no `runtime`.
+- **Auto-start** — open the default runtime as a session automatically when the panel opens.
+- **Auto-close automation sessions** — when an automation-spawned session's process exits, close its tab automatically so tabs don't pile up (default on).
+- **Max concurrent sessions** — cap the number of session tabs that can run at once (`0` = unlimited). Protects against runaway automation spawns.
 
-Runtimes section (the customizable list of CLIs shown in the sidebar dropdown):
+Runtimes section (the customizable list of CLIs available from the new-session menu):
 
 - Each entry holds a display name and a launch command. Examples:
   - `Claude` → `claude`

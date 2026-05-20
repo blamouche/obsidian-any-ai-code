@@ -249,12 +249,137 @@
   font-size: 12px;
 }
 
+/* ----- Session tab bar ----- */
+.claude-cli-tabbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.claude-cli-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px 6px 0 0;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.claude-cli-tab:hover {
+  background: var(--interactive-hover);
+  color: var(--text-normal);
+}
+
+.claude-cli-tab.is-active {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  border-bottom-color: var(--interactive-accent);
+}
+
+.claude-cli-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.claude-cli-tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.claude-cli-tab-dot.is-running {
+  background: var(--color-green, #3fb950);
+}
+
+.claude-cli-tab-dot.is-stopped {
+  background: var(--text-faint);
+}
+
+.claude-cli-tab-auto {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.7;
+}
+
+.claude-cli-tab-auto svg {
+  width: 12px;
+  height: 12px;
+}
+
+.claude-cli-tab-close {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  opacity: 0.6;
+}
+
+.claude-cli-tab-close:hover {
+  opacity: 1;
+  background: var(--background-modifier-hover);
+}
+
+.claude-cli-tab-close svg {
+  width: 13px;
+  height: 13px;
+}
+
+.claude-cli-tab-new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.claude-cli-tab-new:hover {
+  background: var(--interactive-hover);
+  color: var(--text-normal);
+}
+
+/* ----- Terminals container ----- */
+.claude-cli-terminals {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.claude-cli-empty-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 16px;
+  text-align: center;
+}
+
+.claude-cli-empty-hint.is-hidden {
+  display: none;
+}
+
 .claude-cli-terminal {
   flex: 1;
   min-height: 220px;
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
   overflow: hidden;
+}
+
+.claude-cli-terminal.is-hidden {
+  display: none;
 }
 
 .claude-cli-terminal .xterm {
