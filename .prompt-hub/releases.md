@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.13 - 2026-05-20
+- Raised the automation idle threshold from 5s to **10s**: a session is considered "finished" (gray dot, and idle auto-close if enabled) only after its CLI has been quiet for ~10s. Reduces premature tab closing during normal pauses in a running task.
+
 ## 0.2.12 - 2026-05-20
 - Settings: moved the two automation tab auto-close toggles ("...on exit" and "...when idle") out of the general section into the **Automations** section, next to the automations folder/reload/example controls where they belong.
 

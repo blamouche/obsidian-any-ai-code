@@ -19074,7 +19074,7 @@ function cloneDefaultRuntimes() {
 }
 var SESSION_READY_QUIET_MS = 800;
 var SESSION_READY_MAX_MS = 1e4;
-var ACTIVITY_IDLE_MS = 5e3;
+var ACTIVITY_IDLE_MS = 1e4;
 function createSessionTerminal() {
   const terminal = new Dl({
     cursorBlink: true,
@@ -20199,7 +20199,7 @@ var ClaudeCliSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions when idle").setDesc("Close an automation tab once its CLI goes quiet for ~5s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default \u2014 a long task that pauses output for over 5s could be closed early.").addToggle(
+    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions when idle").setDesc("Close an automation tab once its CLI goes quiet for ~10s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default \u2014 a long task that pauses output for over 10s could be closed early.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle).onChange(async (value) => {
         this.plugin.settings.autoCloseAutomationSessionsOnIdle = value;
         await this.plugin.saveSettings();

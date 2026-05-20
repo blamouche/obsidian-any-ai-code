@@ -117,3 +117,8 @@
 - Fichiers : main.ts (ClaudeCliSettingTab.display) ; version 0.2.11 -> 0.2.12 (manifest/versions.json/package.json/version.md) ; releases.md.
 - Validation : lint OK, 74 tests OK, tsc propre, build OK.
 - Statut : success.
+
+## 2026-05-20 17:52 — agent (Claude Opus 4.7)
+- Action : seuil d'inactivité ACTIVITY_IDLE_MS porté de 5000 à 10000 ms (auto-close automation jugé trop rapide).
+- Fichiers : main.ts (const + desc réglage), README.md ; version 0.2.12 -> 0.2.13.
+- Validation : lint OK, 74 tests OK, build OK. Statut : success.

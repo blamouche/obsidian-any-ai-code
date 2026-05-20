@@ -157,7 +157,7 @@ const SESSION_READY_MAX_MS = 10000;
 
 // A session is shown as "working" while its CLI emits output, and flips back to
 // "idle" once output has been quiet for this long (the AI finished its turn).
-const ACTIVITY_IDLE_MS = 5000;
+const ACTIVITY_IDLE_MS = 10000;
 
 function createSessionTerminal(): { terminal: Terminal; fitAddon: FitAddon } {
   const terminal = new Terminal({
@@ -1519,7 +1519,7 @@ class ClaudeCliSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Auto-close automation sessions when idle")
-      .setDesc("Close an automation tab once its CLI goes quiet for ~5s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default — a long task that pauses output for over 5s could be closed early.")
+      .setDesc("Close an automation tab once its CLI goes quiet for ~10s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default — a long task that pauses output for over 10s could be closed early.")
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle)
