@@ -145,9 +145,12 @@ interface ProcessAdapter {
 
 type SessionOrigin = "manual" | "automation";
 
-/** How long to wait for the spawned CLI to emit output before considering a
- * freshly started session "ready" to receive an automation prompt. */
-const SESSION_READY_FALLBACK_MS = 1200;
+// A freshly spawned CLI needs time to render its interactive input box before
+// it will accept a typed prompt + Enter. We treat a session as "ready" once its
+// output has been quiet for SESSION_READY_QUIET_MS (boot/banner finished), and
+// never wait longer than SESSION_READY_MAX_MS as a hard cap.
+const SESSION_READY_QUIET_MS = 800;
+const SESSION_READY_MAX_MS = 10000;
 
 function createSessionTerminal(): { terminal: Terminal; fitAddon: FitAddon } {
   const terminal = new Terminal({
@@ -186,7 +189,8 @@ class CliSession {
   private ready = false;
   whenReady!: Promise<void>;
   private resolveReady: (() => void) | null = null;
-  private readyTimer: number | null = null;
+  private settleTimer: number | null = null;
+  private maxWaitTimer: number | null = null;
 
   constructor(params: {
     id: string;
@@ -207,13 +211,21 @@ class CliSession {
     this.resetReady();
   }
 
+  private clearReadyTimers(): void {
+    if (this.settleTimer !== null) {
+      activeWindow.clearTimeout(this.settleTimer);
+      this.settleTimer = null;
+    }
+    if (this.maxWaitTimer !== null) {
+      activeWindow.clearTimeout(this.maxWaitTimer);
+      this.maxWaitTimer = null;
+    }
+  }
+
   /** Arm a fresh readiness promise for a (re)spawn. */
   resetReady(): void {
     this.ready = false;
-    if (this.readyTimer !== null) {
-      activeWindow.clearTimeout(this.readyTimer);
-      this.readyTimer = null;
-    }
+    this.clearReadyTimers();
     this.whenReady = new Promise<void>((resolve) => {
       this.resolveReady = resolve;
     });
@@ -224,19 +236,29 @@ class CliSession {
       return;
     }
     this.ready = true;
-    if (this.readyTimer !== null) {
-      activeWindow.clearTimeout(this.readyTimer);
-      this.readyTimer = null;
-    }
+    this.clearReadyTimers();
     this.resolveReady?.();
     this.resolveReady = null;
   }
 
-  armReadyFallback(delayMs: number): void {
-    if (this.readyTimer !== null) {
-      activeWindow.clearTimeout(this.readyTimer);
+  /** Hard cap so a session never blocks an automation forever. */
+  armReadyMaxWait(delayMs: number): void {
+    if (this.maxWaitTimer !== null) {
+      activeWindow.clearTimeout(this.maxWaitTimer);
     }
-    this.readyTimer = activeWindow.setTimeout(() => this.markReady(), delayMs);
+    this.maxWaitTimer = activeWindow.setTimeout(() => this.markReady(), delayMs);
+  }
+
+  /** Each output chunk (re)arms a quiet-period timer; readiness is declared
+   * once the CLI stops emitting for `quietMs`, i.e. its input box is drawn. */
+  noteOutputActivity(quietMs: number): void {
+    if (this.ready) {
+      return;
+    }
+    if (this.settleTimer !== null) {
+      activeWindow.clearTimeout(this.settleTimer);
+    }
+    this.settleTimer = activeWindow.setTimeout(() => this.markReady(), quietMs);
   }
 
   isRunning(): boolean {
@@ -272,10 +294,7 @@ class CliSession {
   }
 
   dispose(): void {
-    if (this.readyTimer !== null) {
-      activeWindow.clearTimeout(this.readyTimer);
-      this.readyTimer = null;
-    }
+    this.clearReadyTimers();
     try {
       this.terminal.dispose();
     } catch {
@@ -640,11 +659,12 @@ class ClaudeCliView extends ItemView {
     if (this.activeSessionId === session.id) {
       this.setStatus("Running");
     }
-    session.armReadyFallback(SESSION_READY_FALLBACK_MS);
+    session.armReadyMaxWait(SESSION_READY_MAX_MS);
 
     session.processHandle.onData((data: string) => {
       session.terminal.write(data);
-      session.markReady();
+      // Readiness = first output, then a quiet period (input box rendered).
+      session.noteOutputActivity(SESSION_READY_QUIET_MS);
     });
 
     session.processHandle.onExit((exitCode, signal) => {

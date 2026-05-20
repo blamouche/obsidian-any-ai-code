@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.10 - 2026-05-20
+- Fixed automation prompts not submitting (the auto-Enter from `appendNewline: true` was lost) on freshly spawned session tabs. A new session was marked "ready" on its first byte of output, so the prompt + Enter were sent while the CLI was still booting and its input box did not yet exist. Readiness now waits for the CLI's output to go quiet (debounced ~800 ms, hard cap 10 s), reproducing the idle-at-prompt conditions under which the delayed `\r` reliably submits.
+
 ## 0.2.9 - 2026-05-20
 - **Parallel runtime sessions in tabs.** The sidebar panel now hosts multiple independent sessions, each with its own PTY process and xterm terminal, shown in a tab bar. A `New session` button / `+` control opens a session from any configured runtime; multiple sessions of the same runtime are allowed and disambiguated (`Claude`, `Claude (2)`, …). Switching tabs refits the visible terminal; the per-tab `×` closes a session. `Stop` / `Restart` / `Clear` / `@active file` / `@active folder` now act on the active tab.
 - **Automations spawn their own session.** Each automation run (scheduled or manual) opens a fresh session tab for the declared `runtime` (or the default runtime when none is declared), waits for the CLI to boot, then sends the prompt. Replaces the old "skip if no CLI running / runtime mismatch" behaviour. Unknown declared runtimes are skipped and logged.

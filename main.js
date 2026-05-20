@@ -19065,7 +19065,8 @@ Say hello and tell me the current date and time.
 function cloneDefaultRuntimes() {
   return DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime }));
 }
-var SESSION_READY_FALLBACK_MS = 1200;
+var SESSION_READY_QUIET_MS = 800;
+var SESSION_READY_MAX_MS = 1e4;
 function createSessionTerminal() {
   const terminal = new Dl({
     cursorBlink: true,
@@ -19089,7 +19090,8 @@ var CliSession = class {
     this.pendingRestart = false;
     this.ready = false;
     this.resolveReady = null;
-    this.readyTimer = null;
+    this.settleTimer = null;
+    this.maxWaitTimer = null;
     this.id = params.id;
     this.runtimeId = params.runtimeId;
     this.label = params.label;
@@ -19099,13 +19101,20 @@ var CliSession = class {
     this.hostEl = params.hostEl;
     this.resetReady();
   }
+  clearReadyTimers() {
+    if (this.settleTimer !== null) {
+      activeWindow.clearTimeout(this.settleTimer);
+      this.settleTimer = null;
+    }
+    if (this.maxWaitTimer !== null) {
+      activeWindow.clearTimeout(this.maxWaitTimer);
+      this.maxWaitTimer = null;
+    }
+  }
   /** Arm a fresh readiness promise for a (re)spawn. */
   resetReady() {
     this.ready = false;
-    if (this.readyTimer !== null) {
-      activeWindow.clearTimeout(this.readyTimer);
-      this.readyTimer = null;
-    }
+    this.clearReadyTimers();
     this.whenReady = new Promise((resolve2) => {
       this.resolveReady = resolve2;
     });
@@ -19116,18 +19125,27 @@ var CliSession = class {
       return;
     }
     this.ready = true;
-    if (this.readyTimer !== null) {
-      activeWindow.clearTimeout(this.readyTimer);
-      this.readyTimer = null;
-    }
+    this.clearReadyTimers();
     (_a5 = this.resolveReady) == null ? void 0 : _a5.call(this);
     this.resolveReady = null;
   }
-  armReadyFallback(delayMs) {
-    if (this.readyTimer !== null) {
-      activeWindow.clearTimeout(this.readyTimer);
+  /** Hard cap so a session never blocks an automation forever. */
+  armReadyMaxWait(delayMs) {
+    if (this.maxWaitTimer !== null) {
+      activeWindow.clearTimeout(this.maxWaitTimer);
     }
-    this.readyTimer = activeWindow.setTimeout(() => this.markReady(), delayMs);
+    this.maxWaitTimer = activeWindow.setTimeout(() => this.markReady(), delayMs);
+  }
+  /** Each output chunk (re)arms a quiet-period timer; readiness is declared
+   * once the CLI stops emitting for `quietMs`, i.e. its input box is drawn. */
+  noteOutputActivity(quietMs) {
+    if (this.ready) {
+      return;
+    }
+    if (this.settleTimer !== null) {
+      activeWindow.clearTimeout(this.settleTimer);
+    }
+    this.settleTimer = activeWindow.setTimeout(() => this.markReady(), quietMs);
   }
   isRunning() {
     return this.processHandle !== null;
@@ -19153,10 +19171,7 @@ var CliSession = class {
     this.writeSystemLine(`[Automation prompt injected]`);
   }
   dispose() {
-    if (this.readyTimer !== null) {
-      activeWindow.clearTimeout(this.readyTimer);
-      this.readyTimer = null;
-    }
+    this.clearReadyTimers();
     try {
       this.terminal.dispose();
     } catch (e) {
@@ -19492,10 +19507,10 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     if (this.activeSessionId === session.id) {
       this.setStatus("Running");
     }
-    session.armReadyFallback(SESSION_READY_FALLBACK_MS);
+    session.armReadyMaxWait(SESSION_READY_MAX_MS);
     session.processHandle.onData((data) => {
       session.terminal.write(data);
-      session.markReady();
+      session.noteOutputActivity(SESSION_READY_QUIET_MS);
     });
     session.processHandle.onExit((exitCode, signal) => {
       session.processHandle = null;

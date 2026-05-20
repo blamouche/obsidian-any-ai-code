@@ -84,3 +84,11 @@
 - Validation : `npm run lint` OK, `npm test` 70/70 OK, `npm run build` OK, `tsc --noEmit` sans erreur sur les fichiers du projet (erreurs résiduelles uniquement dans node_modules/vitest).
 - Version : 0.2.8 -> 0.2.9.
 - Statut : success. Étape suivante : commit + push, puis test manuel dans Obsidian (smoke test du plan).
+
+## 2026-05-20 10:35 — agent (Claude Opus 4.7)
+- Action : corrigé le bug "appendNewline ne soumet plus" pour les automatisations.
+- Cause : readiness de session déclarée au premier octet de sortie -> prompt+Enter envoyés pendant le boot du CLI.
+- Fix : readiness par débounce "quiet" (800 ms) + plafond dur (10 s) dans CliSession (noteOutputActivity/armReadyMaxWait), câblé dans spawnIntoSession.
+- Fichiers : main.ts ; version 0.2.9 -> 0.2.10 (manifest/versions.json/package.json/version.md) ; releases.md, lessons.md.
+- Validation : lint OK, build OK, tsc propre sur code projet. Zip 0.2.10 régénéré.
+- Statut : success.
