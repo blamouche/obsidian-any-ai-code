@@ -92,3 +92,9 @@
 - Fichiers : main.ts ; version 0.2.9 -> 0.2.10 (manifest/versions.json/package.json/version.md) ; releases.md, lessons.md.
 - Validation : lint OK, build OK, tsc propre sur code projet. Zip 0.2.10 régénéré.
 - Statut : success.
+
+## 2026-05-20 10:45 — agent (Claude Opus 4.7)
+- Action : publié la release GitHub 0.2.10 (user a confirmé que le fix fonctionne).
+- Détails : tag 0.2.10 sur HEAD, assets any-ai-cli-0.2.10.zip + main.js/manifest.json/styles.css/versions.json, notes "What's new" (sessions parallèles + fix appendNewline).
+- Nettoyage : retiré le zip du suivi git, ajouté *.zip au .gitignore (commit 0f69356).
+- Statut : success.
