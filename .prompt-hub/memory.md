@@ -111,3 +111,9 @@
 - Action : publié la release GitHub 0.2.11 (pastille par activité + idle auto-close).
 - Détails : tag 0.2.11 sur HEAD, assets zip + main.js/manifest.json/styles.css/versions.json.
 - Statut : success.
+
+## 2026-05-20 17:48 — agent (Claude Opus 4.7)
+- Action : déplacé les deux toggles d'auto-close (on exit / when idle) de la section générale vers la section Automations des paramètres.
+- Fichiers : main.ts (ClaudeCliSettingTab.display) ; version 0.2.11 -> 0.2.12 (manifest/versions.json/package.json/version.md) ; releases.md.
+- Validation : lint OK, 74 tests OK, tsc propre, build OK.
+- Statut : success.

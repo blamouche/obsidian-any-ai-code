@@ -20102,18 +20102,6 @@ var ClaudeCliSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions on exit").setDesc("When an automation-spawned session's process exits, close its tab automatically so tabs don't pile up.").addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.autoCloseAutomationSessions).onChange(async (value) => {
-        this.plugin.settings.autoCloseAutomationSessions = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions when idle").setDesc("Close an automation tab once its CLI goes quiet for ~5s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default \u2014 a long task that pauses output for over 5s could be closed early.").addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle).onChange(async (value) => {
-        this.plugin.settings.autoCloseAutomationSessionsOnIdle = value;
-        await this.plugin.saveSettings();
-      })
-    );
     new import_obsidian2.Setting(containerEl).setName("Max concurrent sessions").setDesc("Maximum number of session tabs that can run at once (0 = unlimited). Protects against runaway automation spawns.").addText(
       (text) => text.setPlaceholder("8").setValue(String(this.plugin.settings.maxConcurrentSessions)).onChange(async (value) => {
         const parsed = Number.parseInt(value.trim(), 10);
@@ -20203,6 +20191,18 @@ var ClaudeCliSettingTab = class extends import_obsidian2.PluginSettingTab {
         } catch (err) {
           new import_obsidian2.Notice(err.message, 5e3);
         }
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions on exit").setDesc("When an automation-spawned session's process exits, close its tab automatically so tabs don't pile up.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.autoCloseAutomationSessions).onChange(async (value) => {
+        this.plugin.settings.autoCloseAutomationSessions = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions when idle").setDesc("Close an automation tab once its CLI goes quiet for ~5s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default \u2014 a long task that pauses output for over 5s could be closed early.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle).onChange(async (value) => {
+        this.plugin.settings.autoCloseAutomationSessionsOnIdle = value;
+        await this.plugin.saveSettings();
       })
     );
     new import_obsidian2.Setting(containerEl).setName("Advanced").setHeading();

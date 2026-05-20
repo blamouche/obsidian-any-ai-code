@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.12 - 2026-05-20
+- Settings: moved the two automation tab auto-close toggles ("...on exit" and "...when idle") out of the general section into the **Automations** section, next to the automations folder/reload/example controls where they belong.
+
 ## 0.2.11 - 2026-05-20
 - **Activity-aware tab status dot.** Each session tab's dot now reflects live CLI activity instead of just "process alive": **green** = a manual session's AI is working, **purple** = an automation session's AI is working, **gray** = the CLI is idle (finished its turn) or stopped. Activity is tracked continuously — output flowing = working; quiet for ~5s = idle.
 - **New setting "Auto-close automation sessions when idle"** (off by default). Closes an automation tab once its CLI goes quiet ~5s after the prompt ran, even if the process stays interactive (Claude/Codex). Complements the existing "on exit" close (renamed "Auto-close automation sessions on exit"); both are kept. Idle-close is armed only after the prompt is sent and driven by real CLI output, so boot and slow first responses don't close the tab prematurely.
