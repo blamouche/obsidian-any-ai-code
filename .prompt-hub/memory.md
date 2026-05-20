@@ -106,3 +106,8 @@
 - Validation : lint OK, 74 tests OK, tsc propre code projet, build OK.
 - Version : 0.2.10 -> 0.2.11.
 - Statut : success. Suivant : commit/push + zip + release GitHub.
+
+## 2026-05-20 17:46 — agent (Claude Opus 4.7)
+- Action : publié la release GitHub 0.2.11 (pastille par activité + idle auto-close).
+- Détails : tag 0.2.11 sur HEAD, assets zip + main.js/manifest.json/styles.css/versions.json.
+- Statut : success.
