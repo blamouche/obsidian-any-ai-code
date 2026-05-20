@@ -141,3 +141,8 @@
 - Détails : ajout de ~/.lmstudio/bin à extraPaths dans getShellEnv() (main.ts) ; mergePathEntries déduplique déjà. Vérifié que ~/.lmstudio/bin/lms existe.
 - Fichiers : main.ts, releases.md, version.md, manifest.json, package.json, versions.json ; version 0.2.15 -> 0.2.16.
 - Validation : build OK, chemin présent dans main.js. Statut : success.
+
+## 2026-05-20 — agent (Claude Opus 4.7)
+- Action : publié la release GitHub 0.2.16 (tag 0.2.16 poussé -> workflow Release OK -> draft publié via gh release edit --draft=false).
+- Fichiers/commandes : git tag 0.2.16 && git push origin 0.2.16 ; gh release edit 0.2.16 --draft=false.
+- URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.16. Statut : success.
