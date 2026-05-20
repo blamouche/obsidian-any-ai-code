@@ -8,6 +8,26 @@ try {
 const { spawn } = require("child_process");
 const fs = require("fs");
 
+// Diagnostic logger. The node-pty -> python bridge -> pipe -> script fallback
+// chain is normal operation when the optional native `node-pty` module is not
+// installed, so its info/warn chatter is hidden from the terminal by default
+// and only shown when verbose proxy logging is enabled. Real launch failures
+// (error/fatal) are always surfaced so a blank terminal never goes unexplained.
+function makeLogger(verbose) {
+  const write = (line) => process.stderr.write(line);
+  return {
+    info(message) {
+      if (verbose) write(`[proxy-info] ${message}\n`);
+    },
+    warn(message) {
+      if (verbose) write(`[proxy-warn] ${message}\n`);
+    },
+    error(message) {
+      write(`[proxy-error] ${message}\n`);
+    }
+  };
+}
+
 function decodePayload(raw) {
   if (!raw) {
     throw new Error("Missing proxy payload");
@@ -165,6 +185,7 @@ function spawnPythonBridge(payload, launches) {
 
 async function main() {
   const payload = decodePayload(process.argv[2]);
+  const log = makeLogger(Boolean(payload.verbose));
   const launches = getLaunchSpecs(payload.command);
 
   let term;
@@ -182,7 +203,7 @@ async function main() {
       useConpty: process.platform === "win32"
     });
   } catch (error) {
-    process.stderr.write(`[proxy-warn] PTY unavailable, switching to pipe mode: ${error.message}\n`);
+    log.warn(`PTY unavailable, switching to pipe mode: ${error.message}`);
     mode = "pipe";
     try {
       const fallbackEnv = {
@@ -203,47 +224,47 @@ async function main() {
             },
             launches
           );
-          process.stderr.write("[proxy-info] python PTY bridge fallback started\n");
+          log.info("python PTY bridge fallback started");
         } catch (pythonError) {
-          process.stderr.write(`[proxy-warn] python bridge failed, trying direct pipe: ${pythonError.message}\n`);
+          log.warn(`python bridge failed, trying direct pipe: ${pythonError.message}`);
           try {
             term = spawnPipeWithFallback(launches, {
               cwd: payload.cwd,
               env: fallbackEnv
             });
-            process.stderr.write("[proxy-info] direct pipe fallback started\n");
+            log.info("direct pipe fallback started");
           } catch (pipeError) {
             if (codexCommand) {
-              process.stderr.write(`[proxy-error] ${pipeError.message}\n`);
+              log.error(pipeError.message);
               process.exit(1);
               return;
             }
             if (scriptLaunches.length === 0) {
-              process.stderr.write(`[proxy-error] ${pipeError.message}\n`);
+              log.error(pipeError.message);
               process.exit(1);
               return;
             }
 
-            process.stderr.write(`[proxy-warn] direct pipe failed, trying system 'script': ${pipeError.message}\n`);
+            log.warn(`direct pipe failed, trying system 'script': ${pipeError.message}`);
             try {
               term = spawnPipeWithFallback(scriptLaunches, {
                 cwd: payload.cwd,
                 env: fallbackEnv
               });
             } catch (scriptError) {
-              process.stderr.write(`[proxy-error] ${scriptError.message}\n`);
+              log.error(scriptError.message);
               process.exit(1);
               return;
             }
           }
         }
       }
-      process.stderr.write(`[proxy-info] fallback process started (pid=${term.pid})\n`);
+      log.info(`fallback process started (pid=${term.pid})`);
     } catch (outerError) {
-      process.stderr.write(`[proxy-error] ${outerError.message}\n`);
+      log.error(outerError.message);
       process.exit(1);
       return;
-    } 
+    }
   }
 
   if (mode === "pty") {

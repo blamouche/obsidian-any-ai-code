@@ -128,3 +128,9 @@
 - Détails : champ settings idleTimeoutSeconds + sanitize (>=1), const DEFAULT_IDLE_TIMEOUT_SECONDS déplacée avant DEFAULT_SETTINGS (TDZ), noteActivity utilise settings.idleTimeoutSeconds*1000, ligne UI dans section Automations.
 - Fichiers : main.ts, README.md ; version 0.2.13 -> 0.2.14.
 - Validation : lint OK, 74 tests OK, tsc propre, build OK. Statut : success.
+
+## 2026-05-20 18:08 — agent (Claude Opus 4.7)
+- Action : masqué le bruit du proxy au lancement ([proxy-warn]/[proxy-info] du fallback node-pty->python->pipe) ; gardé error/fatal.
+- Détails : logger gated par payload.verbose dans pty-proxy.js (info/warn silencieux par défaut) ; setting verboseProxyLogs (off) ; spawnPtyProxy passe verbose dans le payload ; toggle UI dans Advanced. pty-proxy.js réembarqué au build (PTY_PROXY_SOURCE) et réécrit sur disque par writeProxyFileIfNeeded.
+- Fichiers : pty-proxy.js, main.ts, README.md ; version 0.2.14 -> 0.2.15.
+- Validation : node --check OK, lint OK, 74 tests OK, tsc propre, build OK. Statut : success.

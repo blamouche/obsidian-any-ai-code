@@ -166,6 +166,7 @@ Automations section:
 Advanced:
 
 - **Node executable** — path to the Node binary used to run the PTY proxy. Leave as `auto` for automatic detection, or override with an explicit path (`/opt/homebrew/bin/node`, `C:\Program Files\nodejs\node.exe`, etc.).
+- **Verbose proxy logs** — print the PTY backend's diagnostic messages (`[proxy-info]` / `[proxy-warn]` for the node-pty → python bridge → pipe fallback chain) in the terminal. Off by default; these are normal fallback notes, not errors. Real launch failures (`[proxy-error]` / `[proxy-fatal]`) are always shown regardless. Applies to the next session you start.
 
 ## Runtime Architecture (Fallback Chain)
 
@@ -176,7 +177,7 @@ The plugin tries multiple strategies to maximize startup success:
 3. Direct pipe fallback (`child_process`)
 4. `script` fallback (last resort on Unix)
 
-Status and logs clearly show the active strategy (`proxy-warn`, `proxy-info`, etc.).
+The chosen strategy is silent by default; enable **Verbose proxy logs** in settings to see the `[proxy-info]` / `[proxy-warn]` diagnostics. Genuine failures (`[proxy-error]` / `[proxy-fatal]`) always appear.
 
 ## Troubleshooting
 

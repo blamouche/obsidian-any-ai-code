@@ -65,6 +65,7 @@ interface ClaudeCliPluginSettings {
   autoCloseAutomationSessionsOnIdle: boolean;
   idleTimeoutSeconds: number;
   maxConcurrentSessions: number;
+  verboseProxyLogs: boolean;
 }
 
 // Default idle threshold (seconds) for the configurable `idleTimeoutSeconds`
@@ -85,7 +86,8 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   autoCloseAutomationSessions: true,
   autoCloseAutomationSessionsOnIdle: false,
   idleTimeoutSeconds: DEFAULT_IDLE_TIMEOUT_SECONDS,
-  maxConcurrentSessions: 8
+  maxConcurrentSessions: 8,
+  verboseProxyLogs: false
 };
 
 const AUTOMATION_TICK_MS = 30_000;
@@ -715,7 +717,8 @@ class ClaudeCliView extends ItemView {
         rows: Math.max(10, session.terminal.rows || 30),
         nodeExecutable: this.plugin.settings.nodeExecutable,
         pluginDir: this.plugin.manifest.dir,
-        vaultPath
+        vaultPath,
+        verbose: this.plugin.settings.verboseProxyLogs
       });
       session.processHandle = makeProxyAdapter(helperHandle);
     } catch (error) {
@@ -1302,7 +1305,11 @@ export default class ClaudeCliPlugin extends Plugin {
         Number.isInteger(raw.maxConcurrentSessions) &&
         raw.maxConcurrentSessions >= 0
           ? raw.maxConcurrentSessions
-          : DEFAULT_SETTINGS.maxConcurrentSessions
+          : DEFAULT_SETTINGS.maxConcurrentSessions,
+      verboseProxyLogs:
+        typeof raw.verboseProxyLogs === "boolean"
+          ? raw.verboseProxyLogs
+          : DEFAULT_SETTINGS.verboseProxyLogs
     };
   }
 
@@ -1569,6 +1576,18 @@ class ClaudeCliSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl)
+      .setName("Verbose proxy logs")
+      .setDesc("Print the proxy's diagnostic messages (node-pty / python bridge / pipe fallback) in the terminal. Off by default — these are normal fallback notes, not errors. Real launch failures are always shown. Takes effect on the next session start.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.verboseProxyLogs)
+          .onChange(async (value) => {
+            this.plugin.settings.verboseProxyLogs = value;
+            await this.plugin.saveSettings();
+          })
+      );
   }
 }
 
@@ -1681,6 +1700,7 @@ function spawnPtyProxy(params: {
   nodeExecutable: string;
   pluginDir?: string;
   vaultPath?: string;
+  verbose?: boolean;
 }): ChildProcess {
   const resolvedPluginDir = resolvePluginDir(params.pluginDir, params.vaultPath, path);
   if (resolvedPluginDir) {
@@ -1704,7 +1724,8 @@ function spawnPtyProxy(params: {
       cwd: params.cwd,
       env: params.env,
       cols: params.cols,
-      rows: params.rows
+      rows: params.rows,
+      verbose: Boolean(params.verbose)
     }),
     "utf8"
   ).toString("base64");

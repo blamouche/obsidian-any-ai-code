@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.15 - 2026-05-20
+- Quieter terminal on launch: the PTY backend's fallback chatter (`[proxy-warn] PTY unavailable...`, the node-pty "Require stack" dump, `[proxy-info] python PTY bridge fallback started`, `fallback process started (pid=...)`) is now hidden by default. These are normal fallback notes (the optional native `node-pty` module isn't installed), not errors. Genuine launch failures (`[proxy-error]` / `[proxy-fatal]`) are still always shown. A new **Verbose proxy logs** toggle (Advanced settings, off by default) brings the full diagnostics back for debugging.
+
 ## 0.2.14 - 2026-05-20
 - Made the idle threshold **configurable** via a new "Idle timeout (seconds)" setting in the Automations section (default 10). It controls when a session counts as finished — the gray tab dot and the idle auto-close. Replaces the hard-coded 10s constant.
 
