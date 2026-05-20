@@ -122,3 +122,9 @@
 - Action : seuil d'inactivité ACTIVITY_IDLE_MS porté de 5000 à 10000 ms (auto-close automation jugé trop rapide).
 - Fichiers : main.ts (const + desc réglage), README.md ; version 0.2.12 -> 0.2.13.
 - Validation : lint OK, 74 tests OK, build OK. Statut : success.
+
+## 2026-05-20 17:58 — agent (Claude Opus 4.7)
+- Action : rendu le délai d'inactivité configurable (réglage "Idle timeout (seconds)", défaut 10) au lieu de la constante fixe.
+- Détails : champ settings idleTimeoutSeconds + sanitize (>=1), const DEFAULT_IDLE_TIMEOUT_SECONDS déplacée avant DEFAULT_SETTINGS (TDZ), noteActivity utilise settings.idleTimeoutSeconds*1000, ligne UI dans section Automations.
+- Fichiers : main.ts, README.md ; version 0.2.13 -> 0.2.14.
+- Validation : lint OK, 74 tests OK, tsc propre, build OK. Statut : success.

@@ -144,7 +144,8 @@ General:
 - **Default runtime** — which configured runtime opens as the first session on auto-start, and which automations use when they declare no `runtime`.
 - **Auto-start** — open the default runtime as a session automatically when the panel opens.
 - **Auto-close automation sessions on exit** — when an automation-spawned session's process exits, close its tab automatically so tabs don't pile up (default on).
-- **Auto-close automation sessions when idle** — close an automation tab once its CLI goes quiet for ~10s after the prompt ran (the AI finished its turn), even if the process stays alive (default off). Useful for CLIs like Claude/Codex that stay interactive instead of exiting. A long task that pauses output for over 10s could be closed early, so it's opt-in.
+- **Auto-close automation sessions when idle** — close an automation tab once its CLI goes quiet for the idle timeout after the prompt ran (the AI finished its turn), even if the process stays alive (default off). Useful for CLIs like Claude/Codex that stay interactive instead of exiting. A long task that pauses output beyond the timeout could be closed early, so it's opt-in.
+- **Idle timeout (seconds)** — how long a CLI must stay quiet before a session counts as finished (gray tab dot + trigger for the idle auto-close above). Default `10`.
 - **Max concurrent sessions** — cap the number of session tabs that can run at once (`0` = unlimited). Protects against runaway automation spawns.
 
 Runtimes section (the customizable list of CLIs available from the new-session menu):

@@ -63,8 +63,14 @@ interface ClaudeCliPluginSettings {
   automationsHistoryLimit: number;
   autoCloseAutomationSessions: boolean;
   autoCloseAutomationSessionsOnIdle: boolean;
+  idleTimeoutSeconds: number;
   maxConcurrentSessions: number;
 }
+
+// Default idle threshold (seconds) for the configurable `idleTimeoutSeconds`
+// setting. A session is shown as "working" while its CLI emits output, and
+// flips back to "idle" once output has been quiet for this long.
+const DEFAULT_IDLE_TIMEOUT_SECONDS = 10;
 
 const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   runtimes: DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime })),
@@ -78,6 +84,7 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   automationsHistoryLimit: 200,
   autoCloseAutomationSessions: true,
   autoCloseAutomationSessionsOnIdle: false,
+  idleTimeoutSeconds: DEFAULT_IDLE_TIMEOUT_SECONDS,
   maxConcurrentSessions: 8
 };
 
@@ -154,10 +161,6 @@ type SessionOrigin = "manual" | "automation";
 // never wait longer than SESSION_READY_MAX_MS as a hard cap.
 const SESSION_READY_QUIET_MS = 800;
 const SESSION_READY_MAX_MS = 10000;
-
-// A session is shown as "working" while its CLI emits output, and flips back to
-// "idle" once output has been quiet for this long (the AI finished its turn).
-const ACTIVITY_IDLE_MS = 10000;
 
 function createSessionTerminal(): { terminal: Terminal; fitAddon: FitAddon } {
   const terminal = new Terminal({
@@ -739,7 +742,7 @@ class ClaudeCliView extends ItemView {
       // Readiness = first output, then a quiet period (input box rendered).
       session.noteOutputActivity(SESSION_READY_QUIET_MS);
       // Live activity for the tab dot + automation idle auto-close.
-      session.noteActivity(ACTIVITY_IDLE_MS);
+      session.noteActivity(this.plugin.settings.idleTimeoutSeconds * 1000);
     });
 
     session.processHandle.onExit((exitCode, signal) => {
@@ -1288,6 +1291,12 @@ export default class ClaudeCliPlugin extends Plugin {
         typeof raw.autoCloseAutomationSessionsOnIdle === "boolean"
           ? raw.autoCloseAutomationSessionsOnIdle
           : DEFAULT_SETTINGS.autoCloseAutomationSessionsOnIdle,
+      idleTimeoutSeconds:
+        typeof raw.idleTimeoutSeconds === "number" &&
+        Number.isInteger(raw.idleTimeoutSeconds) &&
+        raw.idleTimeoutSeconds >= 1
+          ? raw.idleTimeoutSeconds
+          : DEFAULT_SETTINGS.idleTimeoutSeconds,
       maxConcurrentSessions:
         typeof raw.maxConcurrentSessions === "number" &&
         Number.isInteger(raw.maxConcurrentSessions) &&
@@ -1519,12 +1528,29 @@ class ClaudeCliSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Auto-close automation sessions when idle")
-      .setDesc("Close an automation tab once its CLI goes quiet for ~10s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default — a long task that pauses output for over 10s could be closed early.")
+      .setDesc("Close an automation tab once its CLI goes quiet after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default — a long task that pauses output beyond the idle timeout could be closed early.")
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle)
           .onChange(async (value) => {
             this.plugin.settings.autoCloseAutomationSessionsOnIdle = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Idle timeout (seconds)")
+      .setDesc("How long a CLI must stay quiet before a session counts as finished — turns the tab dot gray and triggers the idle auto-close above. Default 10.")
+      .addText((text) =>
+        text
+          .setPlaceholder(String(DEFAULT_IDLE_TIMEOUT_SECONDS))
+          .setValue(String(this.plugin.settings.idleTimeoutSeconds))
+          .onChange(async (value) => {
+            const parsed = Number.parseInt(value.trim(), 10);
+            this.plugin.settings.idleTimeoutSeconds =
+              Number.isInteger(parsed) && parsed >= 1
+                ? parsed
+                : DEFAULT_SETTINGS.idleTimeoutSeconds;
             await this.plugin.saveSettings();
           })
       );

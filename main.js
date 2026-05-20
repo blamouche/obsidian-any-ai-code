@@ -19004,6 +19004,7 @@ var DEFAULT_RUNTIMES = [
   { id: "claude", name: "Claude", command: "claude" },
   { id: "codex", name: "Codex", command: CODEX_DEFAULT_COMMAND }
 ];
+var DEFAULT_IDLE_TIMEOUT_SECONDS = 10;
 var DEFAULT_SETTINGS = {
   runtimes: DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime })),
   selectedRuntimeId: "claude",
@@ -19016,6 +19017,7 @@ var DEFAULT_SETTINGS = {
   automationsHistoryLimit: 200,
   autoCloseAutomationSessions: true,
   autoCloseAutomationSessionsOnIdle: false,
+  idleTimeoutSeconds: DEFAULT_IDLE_TIMEOUT_SECONDS,
   maxConcurrentSessions: 8
 };
 var AUTOMATION_TICK_MS = 3e4;
@@ -19074,7 +19076,6 @@ function cloneDefaultRuntimes() {
 }
 var SESSION_READY_QUIET_MS = 800;
 var SESSION_READY_MAX_MS = 1e4;
-var ACTIVITY_IDLE_MS = 1e4;
 function createSessionTerminal() {
   const terminal = new Dl({
     cursorBlink: true,
@@ -19576,7 +19577,7 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     session.processHandle.onData((data) => {
       session.terminal.write(data);
       session.noteOutputActivity(SESSION_READY_QUIET_MS);
-      session.noteActivity(ACTIVITY_IDLE_MS);
+      session.noteActivity(this.plugin.settings.idleTimeoutSeconds * 1e3);
     });
     session.processHandle.onExit((exitCode, signal) => {
       session.processHandle = null;
@@ -20050,6 +20051,7 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
       automationsHistoryLimit: typeof raw.automationsHistoryLimit === "number" && Number.isInteger(raw.automationsHistoryLimit) && raw.automationsHistoryLimit > 0 ? raw.automationsHistoryLimit : DEFAULT_SETTINGS.automationsHistoryLimit,
       autoCloseAutomationSessions: typeof raw.autoCloseAutomationSessions === "boolean" ? raw.autoCloseAutomationSessions : DEFAULT_SETTINGS.autoCloseAutomationSessions,
       autoCloseAutomationSessionsOnIdle: typeof raw.autoCloseAutomationSessionsOnIdle === "boolean" ? raw.autoCloseAutomationSessionsOnIdle : DEFAULT_SETTINGS.autoCloseAutomationSessionsOnIdle,
+      idleTimeoutSeconds: typeof raw.idleTimeoutSeconds === "number" && Number.isInteger(raw.idleTimeoutSeconds) && raw.idleTimeoutSeconds >= 1 ? raw.idleTimeoutSeconds : DEFAULT_SETTINGS.idleTimeoutSeconds,
       maxConcurrentSessions: typeof raw.maxConcurrentSessions === "number" && Number.isInteger(raw.maxConcurrentSessions) && raw.maxConcurrentSessions >= 0 ? raw.maxConcurrentSessions : DEFAULT_SETTINGS.maxConcurrentSessions
     };
   }
@@ -20199,9 +20201,16 @@ var ClaudeCliSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions when idle").setDesc("Close an automation tab once its CLI goes quiet for ~10s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default \u2014 a long task that pauses output for over 10s could be closed early.").addToggle(
+    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions when idle").setDesc("Close an automation tab once its CLI goes quiet after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default \u2014 a long task that pauses output beyond the idle timeout could be closed early.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle).onChange(async (value) => {
         this.plugin.settings.autoCloseAutomationSessionsOnIdle = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("Idle timeout (seconds)").setDesc("How long a CLI must stay quiet before a session counts as finished \u2014 turns the tab dot gray and triggers the idle auto-close above. Default 10.").addText(
+      (text) => text.setPlaceholder(String(DEFAULT_IDLE_TIMEOUT_SECONDS)).setValue(String(this.plugin.settings.idleTimeoutSeconds)).onChange(async (value) => {
+        const parsed = Number.parseInt(value.trim(), 10);
+        this.plugin.settings.idleTimeoutSeconds = Number.isInteger(parsed) && parsed >= 1 ? parsed : DEFAULT_SETTINGS.idleTimeoutSeconds;
         await this.plugin.saveSettings();
       })
     );

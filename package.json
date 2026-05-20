@@ -1,6 +1,6 @@
 {
   "name": "any-ai-cli",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "Run an AI assistant CLI like Claude from a right sidebar terminal panel, with a customizable runtime list.",
   "main": "main.js",
   "scripts": {
