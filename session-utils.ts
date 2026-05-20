@@ -62,3 +62,20 @@ export function canOpenSession(currentCount: number, max: number): boolean {
   }
   return currentCount < max;
 }
+
+/**
+ * CSS modifier class for a session tab's status dot, from its activity:
+ * - `is-working`    — a manual session whose CLI is currently producing output (green)
+ * - `is-automation` — an automation session whose CLI is currently working (purple)
+ * - `is-idle`       — the CLI is quiet/finished, or the process has stopped (gray)
+ */
+export function tabDotClass(opts: {
+  running: boolean;
+  activity: "working" | "idle";
+  origin: "manual" | "automation";
+}): "is-working" | "is-automation" | "is-idle" {
+  if (opts.running && opts.activity === "working") {
+    return opts.origin === "automation" ? "is-automation" : "is-working";
+  }
+  return "is-idle";
+}

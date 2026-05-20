@@ -18588,6 +18588,12 @@ function canOpenSession(currentCount, max) {
   }
   return currentCount < max;
 }
+function tabDotClass(opts) {
+  if (opts.running && opts.activity === "working") {
+    return opts.origin === "automation" ? "is-automation" : "is-working";
+  }
+  return "is-idle";
+}
 
 // automation.ts
 var import_cron_parser = __toESM(require_dist());
@@ -19009,6 +19015,7 @@ var DEFAULT_SETTINGS = {
   automationsHistory: [],
   automationsHistoryLimit: 200,
   autoCloseAutomationSessions: true,
+  autoCloseAutomationSessionsOnIdle: false,
   maxConcurrentSessions: 8
 };
 var AUTOMATION_TICK_MS = 3e4;
@@ -19067,6 +19074,7 @@ function cloneDefaultRuntimes() {
 }
 var SESSION_READY_QUIET_MS = 800;
 var SESSION_READY_MAX_MS = 1e4;
+var ACTIVITY_IDLE_MS = 5e3;
 function createSessionTerminal() {
   const terminal = new Dl({
     cursorBlink: true,
@@ -19088,6 +19096,14 @@ var CliSession = class {
     this.processHandle = null;
     this.status = "Idle";
     this.pendingRestart = false;
+    // Live activity: "working" while the CLI emits output, "idle" after it goes
+    // quiet. Drives the tab dot colour and (for automations) idle auto-close.
+    this.activity = "idle";
+    // Set true once an automation prompt has been sent, so idle auto-close only
+    // fires after the automation actually ran (not during boot).
+    this.closeOnIdleArmed = false;
+    this.onActivityChange = null;
+    this.activityTimer = null;
     this.ready = false;
     this.resolveReady = null;
     this.settleTimer = null;
@@ -19111,10 +19127,16 @@ var CliSession = class {
       this.maxWaitTimer = null;
     }
   }
-  /** Arm a fresh readiness promise for a (re)spawn. */
+  /** Arm a fresh readiness promise for a (re)spawn, and reset activity state. */
   resetReady() {
     this.ready = false;
     this.clearReadyTimers();
+    if (this.activityTimer !== null) {
+      activeWindow.clearTimeout(this.activityTimer);
+      this.activityTimer = null;
+    }
+    this.activity = "idle";
+    this.closeOnIdleArmed = false;
     this.whenReady = new Promise((resolve2) => {
       this.resolveReady = resolve2;
     });
@@ -19147,6 +19169,38 @@ var CliSession = class {
     }
     this.settleTimer = activeWindow.setTimeout(() => this.markReady(), quietMs);
   }
+  /** Each output chunk marks the session "working" and (re)arms a quiet timer
+   * that flips it back to "idle" after `idleMs` of silence. */
+  noteActivity(idleMs) {
+    var _a5;
+    if (this.activity !== "working") {
+      this.activity = "working";
+      (_a5 = this.onActivityChange) == null ? void 0 : _a5.call(this);
+    }
+    if (this.activityTimer !== null) {
+      activeWindow.clearTimeout(this.activityTimer);
+    }
+    this.activityTimer = activeWindow.setTimeout(() => {
+      var _a6;
+      this.activityTimer = null;
+      if (this.activity !== "idle") {
+        this.activity = "idle";
+        (_a6 = this.onActivityChange) == null ? void 0 : _a6.call(this);
+      }
+    }, idleMs);
+  }
+  /** Force the idle state immediately (e.g. when the process exits). */
+  markIdle() {
+    var _a5;
+    if (this.activityTimer !== null) {
+      activeWindow.clearTimeout(this.activityTimer);
+      this.activityTimer = null;
+    }
+    if (this.activity !== "idle") {
+      this.activity = "idle";
+      (_a5 = this.onActivityChange) == null ? void 0 : _a5.call(this);
+    }
+  }
   isRunning() {
     return this.processHandle !== null;
   }
@@ -19168,10 +19222,15 @@ var CliSession = class {
         }
       }, 120);
     }
+    this.closeOnIdleArmed = true;
     this.writeSystemLine(`[Automation prompt injected]`);
   }
   dispose() {
     this.clearReadyTimers();
+    if (this.activityTimer !== null) {
+      activeWindow.clearTimeout(this.activityTimer);
+      this.activityTimer = null;
+    }
     try {
       this.terminal.dispose();
     } catch (e) {
@@ -19357,6 +19416,12 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
       var _a5;
       return (_a5 = session.processHandle) == null ? void 0 : _a5.write(data);
     });
+    session.onActivityChange = () => {
+      this.renderTabBar();
+      if (session.activity === "idle" && session.origin === "automation" && session.isRunning() && session.closeOnIdleArmed && this.plugin.settings.autoCloseAutomationSessionsOnIdle) {
+        this.closeSession(session.id);
+      }
+    };
     session.writeSystemLine(`CLI session ready (${label}).`);
     this.setActiveSession(session.id);
     this.spawnIntoSession(session, runtime);
@@ -19511,10 +19576,12 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     session.processHandle.onData((data) => {
       session.terminal.write(data);
       session.noteOutputActivity(SESSION_READY_QUIET_MS);
+      session.noteActivity(ACTIVITY_IDLE_MS);
     });
     session.processHandle.onExit((exitCode, signal) => {
       session.processHandle = null;
       session.markReady();
+      session.markIdle();
       if (session.pendingRestart) {
         session.pendingRestart = false;
         const current = this.plugin.settings.runtimes.find((r) => r.id === session.runtimeId);
@@ -19616,7 +19683,11 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
       const tabEl = this.tabBarEl.createDiv({
         cls: `claude-cli-tab${session.id === this.activeSessionId ? " is-active" : ""}`
       });
-      const dotCls = session.isRunning() ? "is-running" : "is-stopped";
+      const dotCls = tabDotClass({
+        running: session.isRunning(),
+        activity: session.activity,
+        origin: session.origin
+      });
       tabEl.createSpan({ cls: `claude-cli-tab-dot ${dotCls}` });
       if (session.origin === "automation") {
         const autoIcon = tabEl.createSpan({ cls: "claude-cli-tab-auto" });
@@ -19978,6 +20049,7 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
       automationsHistory: sanitizeHistory(raw.automationsHistory),
       automationsHistoryLimit: typeof raw.automationsHistoryLimit === "number" && Number.isInteger(raw.automationsHistoryLimit) && raw.automationsHistoryLimit > 0 ? raw.automationsHistoryLimit : DEFAULT_SETTINGS.automationsHistoryLimit,
       autoCloseAutomationSessions: typeof raw.autoCloseAutomationSessions === "boolean" ? raw.autoCloseAutomationSessions : DEFAULT_SETTINGS.autoCloseAutomationSessions,
+      autoCloseAutomationSessionsOnIdle: typeof raw.autoCloseAutomationSessionsOnIdle === "boolean" ? raw.autoCloseAutomationSessionsOnIdle : DEFAULT_SETTINGS.autoCloseAutomationSessionsOnIdle,
       maxConcurrentSessions: typeof raw.maxConcurrentSessions === "number" && Number.isInteger(raw.maxConcurrentSessions) && raw.maxConcurrentSessions >= 0 ? raw.maxConcurrentSessions : DEFAULT_SETTINGS.maxConcurrentSessions
     };
   }
@@ -20030,9 +20102,15 @@ var ClaudeCliSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions").setDesc("When an automation-spawned session's process exits, close its tab automatically so tabs don't pile up.").addToggle(
+    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions on exit").setDesc("When an automation-spawned session's process exits, close its tab automatically so tabs don't pile up.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoCloseAutomationSessions).onChange(async (value) => {
         this.plugin.settings.autoCloseAutomationSessions = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions when idle").setDesc("Close an automation tab once its CLI goes quiet for ~5s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default \u2014 a long task that pauses output for over 5s could be closed early.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle).onChange(async (value) => {
+        this.plugin.settings.autoCloseAutomationSessionsOnIdle = value;
         await this.plugin.saveSettings();
       })
     );

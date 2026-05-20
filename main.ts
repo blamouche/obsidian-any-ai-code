@@ -20,7 +20,8 @@ import {
 import {
   canOpenSession,
   nextSessionLabel,
-  resolveRuntimeForAutomation
+  resolveRuntimeForAutomation,
+  tabDotClass
 } from "./session-utils";
 import {
   buildPromptPreview,
@@ -61,6 +62,7 @@ interface ClaudeCliPluginSettings {
   automationsHistory: AutomationRunRecord[];
   automationsHistoryLimit: number;
   autoCloseAutomationSessions: boolean;
+  autoCloseAutomationSessionsOnIdle: boolean;
   maxConcurrentSessions: number;
 }
 
@@ -75,6 +77,7 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   automationsHistory: [],
   automationsHistoryLimit: 200,
   autoCloseAutomationSessions: true,
+  autoCloseAutomationSessionsOnIdle: false,
   maxConcurrentSessions: 8
 };
 
@@ -152,6 +155,10 @@ type SessionOrigin = "manual" | "automation";
 const SESSION_READY_QUIET_MS = 800;
 const SESSION_READY_MAX_MS = 10000;
 
+// A session is shown as "working" while its CLI emits output, and flips back to
+// "idle" once output has been quiet for this long (the AI finished its turn).
+const ACTIVITY_IDLE_MS = 5000;
+
 function createSessionTerminal(): { terminal: Terminal; fitAddon: FitAddon } {
   const terminal = new Terminal({
     cursorBlink: true,
@@ -185,6 +192,15 @@ class CliSession {
   processHandle: ProcessAdapter | null = null;
   status = "Idle";
   pendingRestart = false;
+
+  // Live activity: "working" while the CLI emits output, "idle" after it goes
+  // quiet. Drives the tab dot colour and (for automations) idle auto-close.
+  activity: "working" | "idle" = "idle";
+  // Set true once an automation prompt has been sent, so idle auto-close only
+  // fires after the automation actually ran (not during boot).
+  closeOnIdleArmed = false;
+  onActivityChange: (() => void) | null = null;
+  private activityTimer: number | null = null;
 
   private ready = false;
   whenReady!: Promise<void>;
@@ -222,10 +238,16 @@ class CliSession {
     }
   }
 
-  /** Arm a fresh readiness promise for a (re)spawn. */
+  /** Arm a fresh readiness promise for a (re)spawn, and reset activity state. */
   resetReady(): void {
     this.ready = false;
     this.clearReadyTimers();
+    if (this.activityTimer !== null) {
+      activeWindow.clearTimeout(this.activityTimer);
+      this.activityTimer = null;
+    }
+    this.activity = "idle";
+    this.closeOnIdleArmed = false;
     this.whenReady = new Promise<void>((resolve) => {
       this.resolveReady = resolve;
     });
@@ -261,6 +283,37 @@ class CliSession {
     this.settleTimer = activeWindow.setTimeout(() => this.markReady(), quietMs);
   }
 
+  /** Each output chunk marks the session "working" and (re)arms a quiet timer
+   * that flips it back to "idle" after `idleMs` of silence. */
+  noteActivity(idleMs: number): void {
+    if (this.activity !== "working") {
+      this.activity = "working";
+      this.onActivityChange?.();
+    }
+    if (this.activityTimer !== null) {
+      activeWindow.clearTimeout(this.activityTimer);
+    }
+    this.activityTimer = activeWindow.setTimeout(() => {
+      this.activityTimer = null;
+      if (this.activity !== "idle") {
+        this.activity = "idle";
+        this.onActivityChange?.();
+      }
+    }, idleMs);
+  }
+
+  /** Force the idle state immediately (e.g. when the process exits). */
+  markIdle(): void {
+    if (this.activityTimer !== null) {
+      activeWindow.clearTimeout(this.activityTimer);
+      this.activityTimer = null;
+    }
+    if (this.activity !== "idle") {
+      this.activity = "idle";
+      this.onActivityChange?.();
+    }
+  }
+
   isRunning(): boolean {
     return this.processHandle !== null;
   }
@@ -290,11 +343,19 @@ class CliSession {
         }
       }, 120);
     }
+    // From now on, the next working→idle transition means "automation finished",
+    // which (if enabled) closes the tab. Driven by the CLI's real output, not a
+    // timer here, so a slow-to-respond CLI is not closed prematurely.
+    this.closeOnIdleArmed = true;
     this.writeSystemLine(`[Automation prompt injected]`);
   }
 
   dispose(): void {
     this.clearReadyTimers();
+    if (this.activityTimer !== null) {
+      activeWindow.clearTimeout(this.activityTimer);
+      this.activityTimer = null;
+    }
     try {
       this.terminal.dispose();
     } catch {
@@ -495,6 +556,18 @@ class ClaudeCliView extends ItemView {
     });
     this.sessions.push(session);
     terminal.onData((data) => session.processHandle?.write(data));
+    session.onActivityChange = () => {
+      this.renderTabBar();
+      if (
+        session.activity === "idle" &&
+        session.origin === "automation" &&
+        session.isRunning() &&
+        session.closeOnIdleArmed &&
+        this.plugin.settings.autoCloseAutomationSessionsOnIdle
+      ) {
+        this.closeSession(session.id);
+      }
+    };
     session.writeSystemLine(`CLI session ready (${label}).`);
 
     // Activate the new tab before spawning so the terminal is visible and sized.
@@ -665,11 +738,14 @@ class ClaudeCliView extends ItemView {
       session.terminal.write(data);
       // Readiness = first output, then a quiet period (input box rendered).
       session.noteOutputActivity(SESSION_READY_QUIET_MS);
+      // Live activity for the tab dot + automation idle auto-close.
+      session.noteActivity(ACTIVITY_IDLE_MS);
     });
 
     session.processHandle.onExit((exitCode, signal) => {
       session.processHandle = null;
       session.markReady();
+      session.markIdle();
       if (session.pendingRestart) {
         session.pendingRestart = false;
         const current = this.plugin.settings.runtimes.find((r) => r.id === session.runtimeId);
@@ -779,7 +855,11 @@ class ClaudeCliView extends ItemView {
       const tabEl = this.tabBarEl.createDiv({
         cls: `claude-cli-tab${session.id === this.activeSessionId ? " is-active" : ""}`
       });
-      const dotCls = session.isRunning() ? "is-running" : "is-stopped";
+      const dotCls = tabDotClass({
+        running: session.isRunning(),
+        activity: session.activity,
+        origin: session.origin
+      });
       tabEl.createSpan({ cls: `claude-cli-tab-dot ${dotCls}` });
       if (session.origin === "automation") {
         const autoIcon = tabEl.createSpan({ cls: "claude-cli-tab-auto" });
@@ -1204,6 +1284,10 @@ export default class ClaudeCliPlugin extends Plugin {
         typeof raw.autoCloseAutomationSessions === "boolean"
           ? raw.autoCloseAutomationSessions
           : DEFAULT_SETTINGS.autoCloseAutomationSessions,
+      autoCloseAutomationSessionsOnIdle:
+        typeof raw.autoCloseAutomationSessionsOnIdle === "boolean"
+          ? raw.autoCloseAutomationSessionsOnIdle
+          : DEFAULT_SETTINGS.autoCloseAutomationSessionsOnIdle,
       maxConcurrentSessions:
         typeof raw.maxConcurrentSessions === "number" &&
         Number.isInteger(raw.maxConcurrentSessions) &&
@@ -1279,13 +1363,25 @@ class ClaudeCliSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Auto-close automation sessions")
+      .setName("Auto-close automation sessions on exit")
       .setDesc("When an automation-spawned session's process exits, close its tab automatically so tabs don't pile up.")
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoCloseAutomationSessions)
           .onChange(async (value) => {
             this.plugin.settings.autoCloseAutomationSessions = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Auto-close automation sessions when idle")
+      .setDesc("Close an automation tab once its CLI goes quiet for ~5s after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default — a long task that pauses output for over 5s could be closed early.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle)
+          .onChange(async (value) => {
+            this.plugin.settings.autoCloseAutomationSessionsOnIdle = value;
             await this.plugin.saveSettings();
           })
       );

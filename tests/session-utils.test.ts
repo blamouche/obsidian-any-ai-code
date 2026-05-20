@@ -3,7 +3,8 @@ import {
   canOpenSession,
   nextSessionLabel,
   resolveRuntimeForAutomation,
-  runtimeMatches
+  runtimeMatches,
+  tabDotClass
 } from "../session-utils";
 import type { CliRuntimeConfig } from "../runtime-utils";
 
@@ -82,5 +83,28 @@ describe("canOpenSession", () => {
   it("treats 0 or negative as unlimited", () => {
     expect(canOpenSession(100, 0)).toBe(true);
     expect(canOpenSession(100, -1)).toBe(true);
+  });
+});
+
+describe("tabDotClass", () => {
+  it("is green for a working manual session", () => {
+    expect(tabDotClass({ running: true, activity: "working", origin: "manual" })).toBe("is-working");
+  });
+
+  it("is purple for a working automation session", () => {
+    expect(tabDotClass({ running: true, activity: "working", origin: "automation" })).toBe(
+      "is-automation"
+    );
+  });
+
+  it("is gray when idle, regardless of origin", () => {
+    expect(tabDotClass({ running: true, activity: "idle", origin: "manual" })).toBe("is-idle");
+    expect(tabDotClass({ running: true, activity: "idle", origin: "automation" })).toBe("is-idle");
+  });
+
+  it("is gray when the process has stopped even if last activity was working", () => {
+    expect(tabDotClass({ running: false, activity: "working", origin: "automation" })).toBe(
+      "is-idle"
+    );
   });
 });

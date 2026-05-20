@@ -297,11 +297,15 @@
   flex: 0 0 auto;
 }
 
-.claude-cli-tab-dot.is-running {
+.claude-cli-tab-dot.is-working {
   background: var(--color-green, #3fb950);
 }
 
-.claude-cli-tab-dot.is-stopped {
+.claude-cli-tab-dot.is-automation {
+  background: var(--color-purple, #a371f7);
+}
+
+.claude-cli-tab-dot.is-idle {
   background: var(--text-faint);
 }
 

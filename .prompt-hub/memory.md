@@ -98,3 +98,11 @@
 - Détails : tag 0.2.10 sur HEAD, assets any-ai-cli-0.2.10.zip + main.js/manifest.json/styles.css/versions.json, notes "What's new" (sessions parallèles + fix appendNewline).
 - Nettoyage : retiré le zip du suivi git, ajouté *.zip au .gitignore (commit 0f69356).
 - Statut : success.
+
+## 2026-05-20 17:42 — agent (Claude Opus 4.7)
+- Action : pastille d'onglet par activité (vert=manuel working, violet=automation working, gris=idle/arrêté) + option de fermeture auto des onglets d'automatisation sur inactivité (~5s, OFF par défaut).
+- Détails : CliSession.activity + noteActivity/markIdle/closeOnIdleArmed, onActivityChange câblé dans startSession (idle-close gardé par origin/running/closeOnIdleArmed/setting), noteActivity dans onData, markIdle dans onExit ; helper pur tabDotClass (session-utils.ts) + tests ; setting autoCloseAutomationSessionsOnIdle ; CSS is-working/is-automation/is-idle ; toggle "on exit" renommé.
+- Décisions : seuil idle fixe 5s (const ACTIVITY_IDLE_MS), option OFF par défaut, garder les deux réglages.
+- Validation : lint OK, 74 tests OK, tsc propre code projet, build OK.
+- Version : 0.2.10 -> 0.2.11.
+- Statut : success. Suivant : commit/push + zip + release GitHub.

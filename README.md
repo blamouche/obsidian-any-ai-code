@@ -86,7 +86,7 @@ The community-store auto-install and the release zip both ship only the three ca
 1. Click the bot ribbon icon, or run the command palette entry **`Open panel`**, to reveal the panel on the right.
 2. Click `New session` (or the `+` at the end of the tab bar) and pick a runtime to launch it in the active vault folder. With auto-start enabled, the default runtime opens automatically as the first session.
 3. Open more sessions the same way — each gets its own tab and process, so runtimes run in parallel. Tabs of the same runtime are disambiguated (`Claude`, `Claude (2)`, …).
-4. Click a tab to bring its session to the front; the `×` on a tab closes that session (and kills its process). A status dot shows whether each session is running.
+4. Click a tab to bring its session to the front; the `×` on a tab closes that session (and kills its process). Each tab has a status dot reflecting activity: **green** = the AI is working, **purple** = an automation's AI is working, **gray** = the CLI is idle (finished its turn) or stopped.
 5. The toolbar acts on the active tab:
    - Click `@active file` or `@active folder` (second toolbar row) to insert the current note path or its parent folder as a mention.
    - Click `Restart` to relaunch the active session's runtime in place, `Stop` to terminate it, `Clear` to wipe its terminal output.
@@ -128,7 +128,7 @@ Rules:
 - The prompt is everything after the closing `---` (trimmed).
 - The `runtime` field selects which runtime to spawn, matched by id or display name. If it names a runtime that is not configured, the run is skipped and logged in History.
 - If `runtime` is omitted, the automation spawns the **default runtime** (set in plugin settings).
-- Each run opens its own session tab. With **Auto-close automation sessions** enabled (default), the tab closes when the process exits so tabs don't accumulate.
+- Each run opens its own session tab. With **Auto-close automation sessions on exit** enabled (default), the tab closes when the process exits; enable **Auto-close automation sessions when idle** to also close it once the AI goes quiet (for CLIs that stay interactive instead of exiting).
 
 ### Manual runs and history
 
@@ -143,7 +143,8 @@ General:
 
 - **Default runtime** — which configured runtime opens as the first session on auto-start, and which automations use when they declare no `runtime`.
 - **Auto-start** — open the default runtime as a session automatically when the panel opens.
-- **Auto-close automation sessions** — when an automation-spawned session's process exits, close its tab automatically so tabs don't pile up (default on).
+- **Auto-close automation sessions on exit** — when an automation-spawned session's process exits, close its tab automatically so tabs don't pile up (default on).
+- **Auto-close automation sessions when idle** — close an automation tab once its CLI goes quiet for ~5s after the prompt ran (the AI finished its turn), even if the process stays alive (default off). Useful for CLIs like Claude/Codex that stay interactive instead of exiting. A long task that pauses output for over 5s could be closed early, so it's opt-in.
 - **Max concurrent sessions** — cap the number of session tabs that can run at once (`0` = unlimited). Protects against runaway automation spawns.
 
 Runtimes section (the customizable list of CLIs available from the new-session menu):
