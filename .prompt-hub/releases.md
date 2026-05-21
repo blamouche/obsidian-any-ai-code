@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.17 - 2026-05-21
+- The **Create example automation** button now writes **two** files into the automations folder: the `hello-world.md` example (as before) and a new `AUTOMATION-DOCS.md` reference that documents every option in detail (purpose, allowed values, defaults, schedule rules, cron examples, validation rules, and how runs/history work). The docs file is regenerated (overwritten) on each press and is excluded from the automation scanner (`loadAutomations`) so it never shows up as a parse error in the modal.
+
 ## 0.2.16 - 2026-05-20
 - Fixed `command not found: lms` (and similar) when launching the LM Studio CLI from the plugin. The PTY backend launches the shell with `-lc` (login, non-interactive), which sources `~/.zprofile`/`~/.zlogin` but **not** `~/.zshrc` — where the `lms` installer adds `~/.lmstudio/bin` to `PATH`. The plugin now adds `~/.lmstudio/bin` to its automatic PATH discovery (`getShellEnv()` in `main.ts`), so `lms` resolves without relying on `.zshrc`.
 
