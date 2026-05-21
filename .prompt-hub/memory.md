@@ -152,3 +152,7 @@
 - Détails : constante AUTOMATION_DOCS_CONTENT + AUTOMATION_DOCS_FILENAME dans main.ts ; createExampleAutomation renvoie {example, docs} et écrase la doc si présente ; loadAutomations exclut AUTOMATION-DOCS.md (sinon flaggé "Missing frontmatter") ; handler bouton + desc mis à jour.
 - Fichiers : main.ts, releases.md, version.md, manifest.json, package.json, versions.json ; version 0.2.16 -> 0.2.17.
 - Validation : build OK, lint OK, 74 tests OK, doc embarquée dans main.js. Statut : success.
+
+## 2026-05-21 — agent (Claude Opus 4.7)
+- Action : publié la release GitHub 0.2.17 (tag poussé -> workflow Release OK -> gh release edit --draft=false).
+- URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.17. Statut : success.
