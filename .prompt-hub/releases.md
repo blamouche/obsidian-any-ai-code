@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.18 - 2026-05-21
+- Added a beginner-friendly **Getting Started** section at the top of the README aimed at non-technical users: a 3-step path covering (1) installing the plugin from Obsidian's Community plugins browser, (2) installing at least one AI coding CLI (Claude Code, Codex, opencode, Ollama) with copy-paste one-line installers, the resulting command name, and official-site links, and (3) opening the panel and starting a session. Reframed the existing "Install in a Vault" section so the community browser is the primary path and the GitHub release zip / manual install are alternatives. Docs only — no plugin behaviour change.
+
 ## 0.2.17 - 2026-05-21
 - The **Create example automation** button now writes **two** files into the automations folder: the `hello-world.md` example (as before) and a new `AUTOMATION-DOCS.md` reference that documents every option in detail (purpose, allowed values, defaults, schedule rules, cron examples, validation rules, and how runs/history work). The docs file is regenerated (overwritten) on each press and is excluded from the automation scanner (`loadAutomations`) so it never shows up as a parse error in the modal.
 

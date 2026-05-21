@@ -6,6 +6,48 @@ Run any local AI coding CLI — Claude, Codex, or your own — inside a right si
 
 The plugin embeds a real PTY-backed terminal in the sidebar and lets you declare an unlimited list of CLI runtimes from settings (each with a display name and a launch command). Open as many sessions as you like — each runs in its own tab with its own process, so several runtimes (or several instances of the same one) run in parallel in a single panel. Launch sessions in your active vault folder, switch tabs on the fly, and inject the active file or folder as a mention with one click. You can also schedule reusable prompts: drop markdown files in a vault folder and the plugin fires each one into its own fresh session tab on an interval or cron — or run them on demand from the Automations panel, with a per-run history you can export.
 
+## Getting Started
+
+New to this? Follow these three steps. No prior coding experience needed.
+
+### Step 1 — Install the plugin (2 minutes)
+
+You install it straight from inside Obsidian, the same way as any other community plugin:
+
+1. Open **Settings** (the gear icon, bottom-left).
+2. Go to **Community plugins** in the left menu.
+3. If you see a "Restricted mode" notice, click **Turn on community plugins** (this just lets Obsidian install plugins).
+4. Click **Browse**, type **`Any AI CLI`** in the search box.
+5. Click the plugin, then click **Install**, and finally **Enable**.
+
+That's it — a robot icon appears in the left ribbon. Click it to open the panel on the right.
+
+### Step 2 — Install at least one AI coding tool
+
+The plugin is a window onto an AI coding assistant — but the assistant itself is a separate program you install once on your computer. Pick **one** to start with (you can add more later). Each is installed from your computer's **Terminal** app (on macOS: open *Terminal*; on Windows: open *PowerShell*) by copy-pasting one line.
+
+| Tool | What it is | Install (copy-paste one line) | Command name |
+|------|-----------|-------------------------------|--------------|
+| **Claude Code** | Anthropic's coding assistant (recommended to start) | `npm install -g @anthropic-ai/claude-code` | `claude` |
+| **Codex** | OpenAI's coding assistant | `npm install -g @openai/codex` | `codex` |
+| **opencode** | Open-source, works with many AI providers | `npm install -g opencode-ai` | `opencode` |
+| **Ollama** | Runs AI models fully **locally** (offline, private) | Download the installer from [ollama.com/download](https://ollama.com/download) | `ollama` |
+
+Notes for non-technical users:
+
+- The `npm install ...` lines need **Node.js** on your machine. If a line says `npm: command not found`, install Node.js first from [nodejs.org](https://nodejs.org) (the "LTS" button), then re-run the line.
+- After installing, check it works by typing the **command name** (e.g. `claude`) in the Terminal and pressing Enter. If it starts, you're ready.
+- These tools may ask you to sign in or paste an API key the first time — follow their on-screen prompts. **Ollama** is the exception: it runs models locally with no account (after install, run `ollama run llama3` once to download a model).
+- Always prefer each tool's **official website** for the most up-to-date install instructions: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), [opencode](https://opencode.ai), [Ollama](https://ollama.com).
+
+### Step 3 — Start using it inside Obsidian
+
+1. Click the **robot icon** in the left ribbon to open the panel.
+2. Click **New session** (or the `+` in the tab bar) and pick the tool you installed.
+3. A terminal opens inside Obsidian, already pointed at your current note's folder. Type a request and press Enter.
+
+> Stuck on `command not found`? See [Troubleshooting](#troubleshooting) — you can point the plugin at the tool's exact location in settings.
+
 ## Features
 
 - Dedicated sidebar view with an embedded `xterm` terminal.
@@ -27,7 +69,9 @@ The plugin embeds a real PTY-backed terminal in the sidebar and lets you declare
 
 ## Install in a Vault
 
-### Recommended — from a GitHub release
+> The easiest way is the **Community plugins browser** inside Obsidian — see [Getting Started](#getting-started) above. The methods below are alternatives for manual or offline installs.
+
+### Alternative — from a GitHub release
 
 1. Open the [latest release](https://github.com/blamouche/obsidian-any-ai-code/releases/latest).
 2. Download `any-ai-cli-<version>.zip`.

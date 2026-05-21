@@ -156,3 +156,9 @@
 ## 2026-05-21 — agent (Claude Opus 4.7)
 - Action : publié la release GitHub 0.2.17 (tag poussé -> workflow Release OK -> gh release edit --draft=false).
 - URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.17. Statut : success.
+
+## 2026-05-21 — agent (Claude Opus 4.7)
+- Action : ajout d'une section "Getting Started" en tête du README pour profils non techniques (install plugin via store Community plugins + install outils CLI claude/codex/opencode/ollama avec installeurs one-line, nom de commande, liens officiels). Section "Install in a Vault" reformulée (store = voie principale).
+- Décisions confirmées par l'utilisateur : canal = store officiel, langue = anglais.
+- Fichiers : README.md, releases.md, version.md, manifest.json, package.json, versions.json ; version 0.2.17 -> 0.2.18 (docs only).
+- Statut : success.
