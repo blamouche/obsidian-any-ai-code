@@ -162,3 +162,7 @@
 - Décisions confirmées par l'utilisateur : canal = store officiel, langue = anglais.
 - Fichiers : README.md, releases.md, version.md, manifest.json, package.json, versions.json ; version 0.2.17 -> 0.2.18 (docs only).
 - Statut : success.
+
+## 2026-05-21 — agent (Claude Opus 4.7)
+- Action : publié la release GitHub 0.2.18 (README Getting Started). Tag poussé -> workflow OK -> gh release edit --draft=false.
+- URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.18. Statut : success.
