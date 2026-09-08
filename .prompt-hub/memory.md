@@ -166,3 +166,12 @@
 ## 2026-05-21 — agent (Claude Opus 4.7)
 - Action : publié la release GitHub 0.2.18 (README Getting Started). Tag poussé -> workflow OK -> gh release edit --draft=false.
 - URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.18. Statut : success.
+
+## 2026-09-08 — agent (Claude Sonnet 5)
+- Action : corrigé le prompt d'automation tronqué à l'injection dans une session CLI fraîche (constaté avec Claude Code v2.1.263 : le CLI ne recevait que la fin du prompt, commençant au milieu d'un mot, et auto-soumettait un fragment).
+- Cause 1 : `CliSession.sendPrompt` écrivait le corps multi-lignes brut ; les `\n` internes valaient Entrée pour l'input ink et les redraws de boot mangeaient le début du collage.
+- Cause 2 : heuristique "session prête" (quiet 800 ms / plafond 10 s) déclenchée dans un creux du démarrage multi-phases de Claude Code v2.1.
+- Correctif : nouveau helper pur `encodeBracketedPaste()` dans session-utils.ts (normalise `\r\n?`->`\n`, encadre `ESC[200~ … ESC[201~`) ; `sendPrompt` l'utilise ; le `\r` final reste un write séparé différé (120 ms). `SESSION_READY_QUIET_MS` 800->1200, `SESSION_READY_MAX_MS` 10000->15000.
+- Fichiers : session-utils.ts, main.ts, tests/session-utils.test.ts, main.js, releases.md, version.md, manifest.json, package.json, versions.json ; version 0.2.18 -> 0.2.19.
+- Validation : 79 tests OK (+5), lint OK, build OK, changement présent dans main.js.
+- Statut : success. Prochain : commit + push + release GitHub 0.2.19 (en attente du feu vert utilisateur).

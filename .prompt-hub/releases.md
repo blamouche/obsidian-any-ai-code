@@ -1,5 +1,11 @@
 # Releases
 
+## 0.2.19 - 2026-09-08
+- Fixed automation prompts being **truncated** when injected into a freshly spawned CLI (seen with Claude Code v2.1): the CLI received only the tail of the prompt (starting mid-word) and auto-submitted a fragment. Two causes addressed:
+  1. The prompt body was written as raw multi-line text. Embedded newlines were read as Enter by the CLI's input widget, and boot-time re-renders swallowed the leading characters. The body is now delivered as an explicit **bracketed paste** (`ESC[200~` … `ESC[201~`), the same framing a terminal uses on paste, so the CLI buffers the whole payload atomically and keeps newlines literal. Line endings are normalized to `\n` first. The trailing Enter (`\r`) is still a separate delayed write.
+  2. The "session ready" heuristic fired too early during Claude Code v2.1's multi-phase startup. Bumped the quiet-period debounce 800 ms → 1200 ms and the hard cap 10 s → 15 s.
+- New pure helper `encodeBracketedPaste()` in `session-utils.ts` with unit tests.
+
 ## 0.2.18 - 2026-05-21
 - Added a beginner-friendly **Getting Started** section at the top of the README aimed at non-technical users: a 3-step path covering (1) installing the plugin from Obsidian's Community plugins browser, (2) installing at least one AI coding CLI (Claude Code, Codex, opencode, Ollama) with copy-paste one-line installers, the resulting command name, and official-site links, and (3) opening the panel and starting a session. Reframed the existing "Install in a Vault" section so the community browser is the primary path and the GitHub release zip / manual install are alternatives. Docs only — no plugin behaviour change.
 

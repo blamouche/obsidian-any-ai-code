@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canOpenSession,
+  encodeBracketedPaste,
   nextSessionLabel,
   resolveRuntimeForAutomation,
   runtimeMatches,
@@ -83,6 +84,32 @@ describe("canOpenSession", () => {
   it("treats 0 or negative as unlimited", () => {
     expect(canOpenSession(100, 0)).toBe(true);
     expect(canOpenSession(100, -1)).toBe(true);
+  });
+});
+
+describe("encodeBracketedPaste", () => {
+  const START = "\x1b[200~";
+  const END = "\x1b[201~";
+
+  it("wraps the body in bracketed-paste markers", () => {
+    expect(encodeBracketedPaste("hello")).toBe(`${START}hello${END}`);
+  });
+
+  it("keeps embedded newlines as literal text inside the markers", () => {
+    const body = "line one\nline two\nline three";
+    expect(encodeBracketedPaste(body)).toBe(`${START}${body}${END}`);
+  });
+
+  it("normalizes CRLF and lone CR to LF so no stray CR acts as submit", () => {
+    expect(encodeBracketedPaste("a\r\nb\rc")).toBe(`${START}a\nb\nc${END}`);
+  });
+
+  it("handles an empty body", () => {
+    expect(encodeBracketedPaste("")).toBe(`${START}${END}`);
+  });
+
+  it("does not inject a trailing Enter (caller sends `\\r` separately)", () => {
+    expect(encodeBracketedPaste("done").endsWith("\r")).toBe(false);
   });
 });
 

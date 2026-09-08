@@ -64,6 +64,20 @@ export function canOpenSession(currentCount: number, max: number): boolean {
 }
 
 /**
+ * Wrap a prompt body as a terminal *bracketed paste* so a PTY-attached TUI
+ * (Claude Code, Codex, any raw-mode input) buffers the whole payload atomically:
+ * embedded newlines stay literal text instead of each acting as an Enter, and a
+ * CLI still finishing its boot-time re-renders cannot swallow the leading
+ * characters. Line endings are normalized to `\n` first (a stray `\r` mid-body
+ * would still read as a submit). The trailing Enter (`\r`) must be written
+ * separately, after a short delay, so the paste-detection window closes.
+ */
+export function encodeBracketedPaste(body: string): string {
+  const normalized = body.replace(/\r\n?/g, "\n");
+  return `\x1b[200~${normalized}\x1b[201~`;
+}
+
+/**
  * CSS modifier class for a session tab's status dot, from its activity:
  * - `is-working`    — a manual session whose CLI is currently producing output (green)
  * - `is-automation` — an automation session whose CLI is currently working (purple)

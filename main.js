@@ -18588,6 +18588,10 @@ function canOpenSession(currentCount, max) {
   }
   return currentCount < max;
 }
+function encodeBracketedPaste(body) {
+  const normalized = body.replace(/\r\n?/g, "\n");
+  return `\x1B[200~${normalized}\x1B[201~`;
+}
 function tabDotClass(opts) {
   if (opts.running && opts.activity === "working") {
     return opts.origin === "automation" ? "is-automation" : "is-working";
@@ -19196,8 +19200,8 @@ A file is reported as an error in the modal (and never fires) when:
 function cloneDefaultRuntimes() {
   return DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime }));
 }
-var SESSION_READY_QUIET_MS = 800;
-var SESSION_READY_MAX_MS = 1e4;
+var SESSION_READY_QUIET_MS = 1200;
+var SESSION_READY_MAX_MS = 15e3;
 function createSessionTerminal() {
   const terminal = new Dl({
     cursorBlink: true,
@@ -19335,7 +19339,7 @@ var CliSession = class {
     if (!this.processHandle) {
       throw new Error("CLI process is not running");
     }
-    this.processHandle.write(text);
+    this.processHandle.write(encodeBracketedPaste(text));
     if (submitWithEnter) {
       const handle = this.processHandle;
       activeWindow.setTimeout(() => {

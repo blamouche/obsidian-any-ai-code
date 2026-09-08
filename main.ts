@@ -19,6 +19,7 @@ import {
 } from "./runtime-utils";
 import {
   canOpenSession,
+  encodeBracketedPaste,
   nextSessionLabel,
   resolveRuntimeForAutomation,
   tabDotClass
@@ -284,8 +285,8 @@ type SessionOrigin = "manual" | "automation";
 // it will accept a typed prompt + Enter. We treat a session as "ready" once its
 // output has been quiet for SESSION_READY_QUIET_MS (boot/banner finished), and
 // never wait longer than SESSION_READY_MAX_MS as a hard cap.
-const SESSION_READY_QUIET_MS = 800;
-const SESSION_READY_MAX_MS = 10000;
+const SESSION_READY_QUIET_MS = 1200;
+const SESSION_READY_MAX_MS = 15000;
 
 function createSessionTerminal(): { terminal: Terminal; fitAddon: FitAddon } {
   const terminal = new Terminal({
@@ -455,13 +456,16 @@ class CliSession {
     if (!this.processHandle) {
       throw new Error("CLI process is not running");
     }
-    this.processHandle.write(text);
+    // Deliver the body as an explicit bracketed paste (ESC[200~ … ESC[201~), the
+    // same framing a real terminal uses on Cmd-V. The CLI then buffers the whole
+    // payload atomically: embedded newlines stay literal (never Enter), and a
+    // CLI still finishing its boot-time re-renders cannot swallow the leading
+    // characters of the prompt.
+    this.processHandle.write(encodeBracketedPaste(text));
     if (submitWithEnter) {
-      // Send Enter as a separate write after a short delay. Some TUIs (notably
-      // Codex) use bracketed-paste-style heuristics: when text+`\r` arrives in
-      // a single write they treat the `\r` as a literal newline inside the
-      // input field, not as the submit key. Splitting the writes lets the
-      // paste-detection window close, so the `\r` is read as a real Enter.
+      // Send Enter as a separate write after a short delay, once the paste has
+      // been consumed. In a single write the `\r` would land inside the paste
+      // window and be read as a literal newline in the input field, not submit.
       const handle = this.processHandle;
       activeWindow.setTimeout(() => {
         try {
