@@ -175,3 +175,8 @@
 - Fichiers : session-utils.ts, main.ts, tests/session-utils.test.ts, main.js, releases.md, version.md, manifest.json, package.json, versions.json ; version 0.2.18 -> 0.2.19.
 - Validation : 79 tests OK (+5), lint OK, build OK, changement présent dans main.js.
 - Statut : success. Prochain : commit + push + release GitHub 0.2.19 (en attente du feu vert utilisateur).
+
+## 2026-09-08 — agent (Claude Sonnet 5)
+- Action : commit + push main (12e8dde) du correctif prompt d'automation tronqué, puis tag 0.2.19 poussé -> workflow Release OK -> draft publié via `gh release edit 0.2.19 --draft=false`.
+- URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.19
+- Assets : any-ai-cli-0.2.19.zip, main.js, manifest.json, styles.css, versions.json. Statut : success.
