@@ -1,5 +1,9 @@
 # Releases
 
+## 0.2.20 - 2026-11-18
+- New setting **Reveal the side panel when an automation runs** (Automations section, **on by default** = current behaviour). When turned off, an automation launch no longer opens/focuses the side panel: the view is still mounted so the session can attach, but it is created inactive and `revealLeaf` is skipped, so a collapsed sidebar stays collapsed and focus stays where you were. The automation session runs normally and its tab is waiting when you open the panel.
+- `AnyAiCliPlugin.activateView()` now accepts `{ reveal?: boolean }` (defaults to `true`); the automation run path passes the new setting through `activateViewAndStartSession`.
+
 ## 0.2.19 - 2026-09-08
 - Fixed automation prompts being **truncated** when injected into a freshly spawned CLI (seen with Claude Code v2.1): the CLI received only the tail of the prompt (starting mid-word) and auto-submitted a fragment. Two causes addressed:
   1. The prompt body was written as raw multi-line text. Embedded newlines were read as Enter by the CLI's input widget, and boot-time re-renders swallowed the leading characters. The body is now delivered as an explicit **bracketed paste** (`ESC[200~` … `ESC[201~`), the same framing a terminal uses on paste, so the CLI buffers the whole payload atomically and keeps newlines literal. Line endings are normalized to `\n` first. The trailing Enter (`\r`) is still a separate delayed write.

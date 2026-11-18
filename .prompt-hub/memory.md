@@ -180,3 +180,10 @@
 - Action : commit + push main (12e8dde) du correctif prompt d'automation tronqué, puis tag 0.2.19 poussé -> workflow Release OK -> draft publié via `gh release edit 0.2.19 --draft=false`.
 - URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.19
 - Assets : any-ai-cli-0.2.19.zip, main.js, manifest.json, styles.css, versions.json. Statut : success.
+
+## 2026-11-18 — agent (Claude Opus 5)
+- Action : mise à jour silencieuse Prompt Hub 0.4.6 -> 0.5.3 (installeur relancé avec `PROMPT_HUB_AUTO_UPDATE=yes` car le premier run s'était arrêté sur un prompt interactif, laissant CLAUDE.md non régénéré).
+- Action : ajout du réglage `revealPanelOnAutomation` (défaut `true`) — choisir si le lancement d'une automation rend visible/focus le panneau latéral.
+- Détails : `activateView(options?: { reveal?: boolean })` crée le leaf avec `active: reveal` et n'appelle `revealLeaf` que si `reveal`; `activateViewAndStartSession` propage `reveal`; hydratation dans `loadSettings`; toggle UI dans la section Automations (libellé sans le nom produit pour satisfaire la règle lint `obsidianmd/ui/sentence-case`); README liste des réglages.
+- Fichiers : main.ts, README.md, main.js, releases.md, version.md, manifest.json, package.json, versions.json, .prompt-hub/todo/todo-20261118-104500-automation-reveal-panel.md ; version 0.2.19 -> 0.2.20.
+- Validation : lint OK, 79 tests OK, build OK, `revealPanelOnAutomation` présent dans main.js. Statut : success.

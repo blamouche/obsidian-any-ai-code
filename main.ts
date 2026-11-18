@@ -64,6 +64,7 @@ interface ClaudeCliPluginSettings {
   automationsHistoryLimit: number;
   autoCloseAutomationSessions: boolean;
   autoCloseAutomationSessionsOnIdle: boolean;
+  revealPanelOnAutomation: boolean;
   idleTimeoutSeconds: number;
   maxConcurrentSessions: number;
   verboseProxyLogs: boolean;
@@ -86,6 +87,7 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   automationsHistoryLimit: 200,
   autoCloseAutomationSessions: true,
   autoCloseAutomationSessionsOnIdle: false,
+  revealPanelOnAutomation: true,
   idleTimeoutSeconds: DEFAULT_IDLE_TIMEOUT_SECONDS,
   maxConcurrentSessions: 8,
   verboseProxyLogs: false
@@ -1279,7 +1281,8 @@ export default class ClaudeCliPlugin extends Plugin {
 
     const started = await this.activateViewAndStartSession({
       runtimeId: runtime.id,
-      origin: "automation"
+      origin: "automation",
+      reveal: this.settings.revealPanelOnAutomation
     });
     if (!started) {
       const reason = "Could not open a session";
@@ -1320,14 +1323,15 @@ export default class ClaudeCliPlugin extends Plugin {
   private async activateViewAndStartSession(params: {
     runtimeId: string;
     origin: SessionOrigin;
+    reveal?: boolean;
   }): Promise<{ view: ClaudeCliView; session: CliSession } | null> {
-    await this.activateView();
+    await this.activateView({ reveal: params.reveal ?? true });
     const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0];
     const view = leaf?.view;
     if (!(view instanceof ClaudeCliView)) {
       return null;
     }
-    const session = view.startSession(params);
+    const session = view.startSession({ runtimeId: params.runtimeId, origin: params.origin });
     if (!session) {
       return null;
     }
@@ -1382,7 +1386,8 @@ export default class ClaudeCliPlugin extends Plugin {
     return { example, docs };
   }
 
-  async activateView(): Promise<void> {
+  async activateView(options?: { reveal?: boolean }): Promise<void> {
+    const reveal = options?.reveal ?? true;
     const { workspace } = this.app;
     let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0] ?? null;
 
@@ -1391,13 +1396,18 @@ export default class ClaudeCliPlugin extends Plugin {
       if (!leaf) {
         return;
       }
+      // When `reveal` is false the view is still mounted (the session needs a
+      // live view to attach to) but it is not focused and the sidebar is left
+      // collapsed if the user had it that way.
       await leaf.setViewState({
         type: VIEW_TYPE_CLAUDE,
-        active: true
+        active: reveal
       });
     }
 
-    await workspace.revealLeaf(leaf);
+    if (reveal) {
+      await workspace.revealLeaf(leaf);
+    }
   }
 
   async loadSettings(): Promise<void> {
@@ -1434,6 +1444,10 @@ export default class ClaudeCliPlugin extends Plugin {
         typeof raw.autoCloseAutomationSessionsOnIdle === "boolean"
           ? raw.autoCloseAutomationSessionsOnIdle
           : DEFAULT_SETTINGS.autoCloseAutomationSessionsOnIdle,
+      revealPanelOnAutomation:
+        typeof raw.revealPanelOnAutomation === "boolean"
+          ? raw.revealPanelOnAutomation
+          : DEFAULT_SETTINGS.revealPanelOnAutomation,
       idleTimeoutSeconds:
         typeof raw.idleTimeoutSeconds === "number" &&
         Number.isInteger(raw.idleTimeoutSeconds) &&
@@ -1681,6 +1695,18 @@ class ClaudeCliSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle)
           .onChange(async (value) => {
             this.plugin.settings.autoCloseAutomationSessionsOnIdle = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Reveal the side panel when an automation runs")
+      .setDesc("On by default: launching an automation opens and focuses the side panel so you can watch the run. Turn this off to let automations run in the background without stealing focus or expanding the sidebar.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.revealPanelOnAutomation)
+          .onChange(async (value) => {
+            this.plugin.settings.revealPanelOnAutomation = value;
             await this.plugin.saveSettings();
           })
       );

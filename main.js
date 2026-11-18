@@ -19021,6 +19021,7 @@ var DEFAULT_SETTINGS = {
   automationsHistoryLimit: 200,
   autoCloseAutomationSessions: true,
   autoCloseAutomationSessionsOnIdle: false,
+  revealPanelOnAutomation: true,
   idleTimeoutSeconds: DEFAULT_IDLE_TIMEOUT_SECONDS,
   maxConcurrentSessions: 8,
   verboseProxyLogs: false
@@ -20068,7 +20069,8 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
     }
     const started = await this.activateViewAndStartSession({
       runtimeId: runtime.id,
-      origin: "automation"
+      origin: "automation",
+      reveal: this.settings.revealPanelOnAutomation
     });
     if (!started) {
       const reason = "Could not open a session";
@@ -20103,13 +20105,14 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
     }
   }
   async activateViewAndStartSession(params) {
-    await this.activateView();
+    var _a5;
+    await this.activateView({ reveal: (_a5 = params.reveal) != null ? _a5 : true });
     const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0];
     const view = leaf == null ? void 0 : leaf.view;
     if (!(view instanceof ClaudeCliView)) {
       return null;
     }
-    const session = view.startSession(params);
+    const session = view.startSession({ runtimeId: params.runtimeId, origin: params.origin });
     if (!session) {
       return null;
     }
@@ -20156,10 +20159,11 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
     this.loadAutomations();
     return { example, docs };
   }
-  async activateView() {
-    var _a5;
+  async activateView(options) {
+    var _a5, _b;
+    const reveal = (_a5 = options == null ? void 0 : options.reveal) != null ? _a5 : true;
     const { workspace } = this.app;
-    let leaf = (_a5 = workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0]) != null ? _a5 : null;
+    let leaf = (_b = workspace.getLeavesOfType(VIEW_TYPE_CLAUDE)[0]) != null ? _b : null;
     if (!leaf) {
       leaf = workspace.getRightLeaf(false);
       if (!leaf) {
@@ -20167,10 +20171,12 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
       }
       await leaf.setViewState({
         type: VIEW_TYPE_CLAUDE,
-        active: true
+        active: reveal
       });
     }
-    await workspace.revealLeaf(leaf);
+    if (reveal) {
+      await workspace.revealLeaf(leaf);
+    }
   }
   async loadSettings() {
     var _a5;
@@ -20188,6 +20194,7 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
       automationsHistoryLimit: typeof raw.automationsHistoryLimit === "number" && Number.isInteger(raw.automationsHistoryLimit) && raw.automationsHistoryLimit > 0 ? raw.automationsHistoryLimit : DEFAULT_SETTINGS.automationsHistoryLimit,
       autoCloseAutomationSessions: typeof raw.autoCloseAutomationSessions === "boolean" ? raw.autoCloseAutomationSessions : DEFAULT_SETTINGS.autoCloseAutomationSessions,
       autoCloseAutomationSessionsOnIdle: typeof raw.autoCloseAutomationSessionsOnIdle === "boolean" ? raw.autoCloseAutomationSessionsOnIdle : DEFAULT_SETTINGS.autoCloseAutomationSessionsOnIdle,
+      revealPanelOnAutomation: typeof raw.revealPanelOnAutomation === "boolean" ? raw.revealPanelOnAutomation : DEFAULT_SETTINGS.revealPanelOnAutomation,
       idleTimeoutSeconds: typeof raw.idleTimeoutSeconds === "number" && Number.isInteger(raw.idleTimeoutSeconds) && raw.idleTimeoutSeconds >= 1 ? raw.idleTimeoutSeconds : DEFAULT_SETTINGS.idleTimeoutSeconds,
       maxConcurrentSessions: typeof raw.maxConcurrentSessions === "number" && Number.isInteger(raw.maxConcurrentSessions) && raw.maxConcurrentSessions >= 0 ? raw.maxConcurrentSessions : DEFAULT_SETTINGS.maxConcurrentSessions,
       verboseProxyLogs: typeof raw.verboseProxyLogs === "boolean" ? raw.verboseProxyLogs : DEFAULT_SETTINGS.verboseProxyLogs
@@ -20342,6 +20349,12 @@ var ClaudeCliSettingTab = class extends import_obsidian2.PluginSettingTab {
     new import_obsidian2.Setting(containerEl).setName("Auto-close automation sessions when idle").setDesc("Close an automation tab once its CLI goes quiet after the prompt ran (the AI finished its turn), even if the process stays alive. Off by default \u2014 a long task that pauses output beyond the idle timeout could be closed early.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoCloseAutomationSessionsOnIdle).onChange(async (value) => {
         this.plugin.settings.autoCloseAutomationSessionsOnIdle = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("Reveal the side panel when an automation runs").setDesc("On by default: launching an automation opens and focuses the side panel so you can watch the run. Turn this off to let automations run in the background without stealing focus or expanding the sidebar.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.revealPanelOnAutomation).onChange(async (value) => {
+        this.plugin.settings.revealPanelOnAutomation = value;
         await this.plugin.saveSettings();
       })
     );
