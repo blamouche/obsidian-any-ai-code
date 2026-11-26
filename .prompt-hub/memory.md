@@ -200,3 +200,8 @@
 - Fichiers : main.ts, main.js, manifest.json, package.json, versions.json, .prompt-hub/version.md, .prompt-hub/releases.md, .prompt-hub/todo/todo-20261126-180000-load-deferred-panel.md ; version 0.2.20 -> 0.2.21.
 - Validation : lint OK, 79 tests OK, tsc --noEmit OK, build OK, `loadIfDeferred` présent dans main.js. Pas de test unitaire : code lié à l'API workspace d'Obsidian (non mockée dans la suite).
 - Statut : success. Prochain : commit + push (en attente du feu vert utilisateur), puis release 0.2.21.
+
+## 2026-11-26 — agent (Claude Opus 5.5)
+- Action : publié la release GitHub 0.2.21 (chargement du panneau différé avant d'ouvrir une session d'automation). Tag 0.2.21 poussé -> workflow Release run 45858552909 success -> draft publié via `gh release edit 0.2.21 --draft=false`.
+- URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.21
+- Assets : any-ai-cli-0.2.21.zip, main.js, manifest.json, styles.css, versions.json. Statut : success.
