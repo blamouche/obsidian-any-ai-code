@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   canOpenSession,
   encodeBracketedPaste,
+  MIN_TERMINAL_COLS,
+  MIN_TERMINAL_ROWS,
   nextSessionLabel,
+  parseStoredTerminalSize,
   resolveRuntimeForAutomation,
+  resolveTerminalSize,
   runtimeMatches,
   tabDotClass
 } from "../session-utils";
@@ -133,5 +137,43 @@ describe("tabDotClass", () => {
     expect(tabDotClass({ running: false, activity: "working", origin: "automation" })).toBe(
       "is-idle"
     );
+  });
+});
+
+describe("resolveTerminalSize", () => {
+  const current = { cols: 80, rows: 24 };
+
+  it("uses the fitted size while the panel is visible", () => {
+    expect(resolveTerminalSize({ visible: true, fitted: { cols: 62, rows: 40 }, lastVisible: { cols: 100, rows: 30 }, current })).toEqual({ cols: 62, rows: 40 });
+  });
+
+  it("falls back to the last visible size while hidden", () => {
+    expect(resolveTerminalSize({ visible: false, fitted: { cols: 2, rows: 1 }, lastVisible: { cols: 62, rows: 40 }, current })).toEqual({ cols: 62, rows: 40 });
+  });
+
+  it("ignores an unusable fitted size", () => {
+    expect(resolveTerminalSize({ visible: true, fitted: { cols: NaN, rows: 40 }, lastVisible: { cols: 62, rows: 40 }, current })).toEqual({ cols: 62, rows: 40 });
+    expect(resolveTerminalSize({ visible: true, fitted: undefined, lastVisible: null, current })).toEqual(current);
+  });
+
+  it("keeps the current size when nothing was ever measured", () => {
+    expect(resolveTerminalSize({ visible: false, fitted: null, lastVisible: null, current })).toEqual(current);
+  });
+
+  it("clamps to the minimums so xterm and the PTY agree", () => {
+    expect(resolveTerminalSize({ visible: true, fitted: { cols: 2, rows: 1 }, lastVisible: null, current })).toEqual({ cols: MIN_TERMINAL_COLS, rows: MIN_TERMINAL_ROWS });
+  });
+});
+
+describe("parseStoredTerminalSize", () => {
+  it("accepts a well-formed size", () => {
+    expect(parseStoredTerminalSize({ cols: 62, rows: 40 })).toEqual({ cols: 62, rows: 40 });
+  });
+
+  it("rejects malformed or too-small values", () => {
+    expect(parseStoredTerminalSize(null)).toBeNull();
+    expect(parseStoredTerminalSize("62x40")).toBeNull();
+    expect(parseStoredTerminalSize({ cols: 2, rows: 40 })).toBeNull();
+    expect(parseStoredTerminalSize({ cols: "x", rows: 40 })).toBeNull();
   });
 });

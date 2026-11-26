@@ -93,3 +93,54 @@ export function tabDotClass(opts: {
   }
   return "is-idle";
 }
+
+export interface TerminalSize {
+  cols: number;
+  rows: number;
+}
+
+export const MIN_TERMINAL_COLS = 20;
+export const MIN_TERMINAL_ROWS = 10;
+
+function isUsableSize(size: TerminalSize | null | undefined): size is TerminalSize {
+  return !!size && Number.isFinite(size.cols) && Number.isFinite(size.rows) && size.cols > 0 && size.rows > 0;
+}
+
+/**
+ * Size a session terminal (and its PTY) should have.
+ *
+ * While the panel is visible the size fitted to the container wins. While it is
+ * hidden (collapsed sidebar, background tab, deferred mount) the container cannot
+ * be measured: FitAddon either does nothing (xterm stays 80×24) or collapses to
+ * 2 columns. Falling back to the last size measured while visible keeps xterm
+ * and the PTY in agreement with what the panel will show once opened, so no
+ * resize — and no garbled TUI redraw — happens on reveal. Always clamped to the
+ * minimums so the terminal and the PTY get exactly the same numbers.
+ */
+export function resolveTerminalSize(opts: {
+  visible: boolean;
+  fitted: TerminalSize | null | undefined;
+  lastVisible: TerminalSize | null | undefined;
+  current: TerminalSize;
+}): TerminalSize {
+  const base =
+    opts.visible && isUsableSize(opts.fitted)
+      ? opts.fitted
+      : isUsableSize(opts.lastVisible)
+        ? opts.lastVisible
+        : opts.current;
+  return {
+    cols: Math.max(MIN_TERMINAL_COLS, Math.floor(base.cols) || 0),
+    rows: Math.max(MIN_TERMINAL_ROWS, Math.floor(base.rows) || 0)
+  };
+}
+
+/** Parse a stored terminal size, rejecting anything malformed. */
+export function parseStoredTerminalSize(raw: unknown): TerminalSize | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const { cols, rows } = raw as Record<string, unknown>;
+  const size = { cols: Number(cols), rows: Number(rows) };
+  return isUsableSize(size) && size.cols >= MIN_TERMINAL_COLS && size.rows >= MIN_TERMINAL_ROWS ? size : null;
+}

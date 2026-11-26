@@ -1,5 +1,13 @@
 # Releases
 
+## 0.2.22 - 2026-11-26
+- Fixed sessions started while the side panel is **hidden** (automation with **Reveal the side panel when an automation runs** off, or a session opened by another plugin in the background) showing a **garbled terminal** once the panel is opened: overlapping lines, duplicated fragments. A hidden container cannot be measured, so `FitAddon.fit()` either left xterm at 80×24 or collapsed it to 2 columns, while the PTY was spawned with `max(20, cols)`; xterm and the CLI disagreed on the width, and the resize on reveal made the TUI (Claude Code) redraw over reflowed lines. Sizing now goes through a single `sizeSession()`:
+  - visible panel → fit to the container and remember that size (`terminalSize` in the plugin data, saved debounced);
+  - hidden panel → reuse the remembered size, so the session already has the size it will be shown at and nothing is resized on reveal;
+  - the PTY is spawned with exactly the terminal's size and only resized when the size really changes (no redundant redraw when switching tabs or reopening the panel);
+  - background tabs follow the panel size too, so switching to them no longer triggers a resize.
+- New pure helpers `resolveTerminalSize()` and `parseStoredTerminalSize()` in `session-utils.ts`, with unit tests.
+
 ## 0.2.21 - 2026-11-26
 - Fixed automations failing with **"Could not open a session"** when the Any AI CLI panel was part of the saved layout but had not been shown since Obsidian started. Obsidian (>= 1.7) restores such side-panel leaves as *deferred*: `leaf.view` is a placeholder rather than a `ClaudeCliView`, so no session could attach. `revealLeaf` used to load it implicitly, but since 0.2.20 it is skipped when **Reveal the side panel when an automation runs** is off, which made both scheduled runs and **Run now** fail. `activateView()` now calls `leaf.loadIfDeferred()` before the optional reveal, so the view is always mounted (still without opening or focusing the sidebar).
 

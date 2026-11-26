@@ -1,4 +1,4 @@
-import { App, FileSystemAdapter, ItemView, Menu, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, WorkspaceLeaf, parseYaml, setIcon } from "obsidian";
+import { App, FileSystemAdapter, ItemView, Menu, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, WorkspaceLeaf, debounce, parseYaml, setIcon } from "obsidian";
 import { spawn, type ChildProcess } from "child_process";
 import { randomUUID } from "node:crypto";
 import * as fs from "fs";
@@ -21,8 +21,11 @@ import {
   canOpenSession,
   encodeBracketedPaste,
   nextSessionLabel,
+  parseStoredTerminalSize,
   resolveRuntimeForAutomation,
-  tabDotClass
+  resolveTerminalSize,
+  tabDotClass,
+  type TerminalSize
 } from "./session-utils";
 import {
   buildPromptPreview,
@@ -60,6 +63,8 @@ interface ClaudeCliPluginSettings {
   nodeExecutable: string;
   automationsFolder: string;
   automationsLastRun: Record<string, number>;
+  // Last terminal size measured while the panel was visible; sizes sessions started while it is hidden.
+  terminalSize: TerminalSize | null;
   automationsHistory: AutomationRunRecord[];
   automationsHistoryLimit: number;
   autoCloseAutomationSessions: boolean;
@@ -83,6 +88,7 @@ const DEFAULT_SETTINGS: ClaudeCliPluginSettings = {
   nodeExecutable: "auto",
   automationsFolder: "",
   automationsLastRun: {},
+  terminalSize: null,
   automationsHistory: [],
   automationsHistoryLimit: 200,
   autoCloseAutomationSessions: true,
@@ -288,6 +294,8 @@ type SessionOrigin = "manual" | "automation";
 // output has been quiet for SESSION_READY_QUIET_MS (boot/banner finished), and
 // never wait longer than SESSION_READY_MAX_MS as a hard cap.
 const SESSION_READY_QUIET_MS = 1200;
+// Below this the terminal container is collapsed or hidden, not merely narrow.
+const MIN_VISIBLE_TERMINAL_PX = 60;
 const SESSION_READY_MAX_MS = 15000;
 
 function createSessionTerminal(): { terminal: Terminal; fitAddon: FitAddon } {
@@ -321,6 +329,8 @@ class CliSession {
   readonly fitAddon: FitAddon;
   readonly hostEl: HTMLDivElement;
   processHandle: ProcessAdapter | null = null;
+  // Size last sent to the PTY (at spawn or by resize); avoids redundant SIGWINCH redraws.
+  ptySize: TerminalSize | null = null;
   status = "Idle";
   pendingRestart = false;
 
@@ -508,6 +518,8 @@ class ClaudeCliView extends ItemView {
   private emptyHintEl: HTMLDivElement | null = null;
   private statusEl: HTMLDivElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  // Panel drags fire many resizes: persist the measured size once it settles.
+  private saveTerminalSize = debounce(() => void this.plugin.saveSettings(), 1500, true);
   private stopBtn: HTMLButtonElement | null = null;
   private restartBtn: HTMLButtonElement | null = null;
   private clearBtn: HTMLButtonElement | null = null;
@@ -579,16 +591,16 @@ class ClaudeCliView extends ItemView {
     this.emptyHintEl.setText("No session running. Use the + button to launch a runtime.");
 
     this.resizeObserver = new ResizeObserver(() => {
-      const session = this.getActiveSession();
-      if (!session) {
-        return;
+      // Active session first: it is the one that can measure the panel and
+      // refresh the remembered size the hidden background tabs then follow.
+      const active = this.getActiveSession();
+      if (active) {
+        this.sizeSession(active);
       }
-      session.fitAddon.fit();
-      if (session.processHandle) {
-        session.processHandle.resize?.(
-          Math.max(20, session.terminal.cols || 120),
-          Math.max(10, session.terminal.rows || 30)
-        );
+      for (const session of this.sessions) {
+        if (session !== active) {
+          this.sizeSession(session);
+        }
       }
     });
     this.resizeObserver.observe(this.contentEl);
@@ -674,7 +686,6 @@ class ClaudeCliView extends ItemView {
     const hostEl = this.terminalsHostEl.createDiv({ cls: "claude-cli-terminal" });
     const { terminal, fitAddon } = createSessionTerminal();
     terminal.open(hostEl);
-    fitAddon.fit();
     const label = nextSessionLabel(
       this.sessions.map((s) => s.label),
       runtime.name || "(Unnamed)"
@@ -755,14 +766,48 @@ class ClaudeCliView extends ItemView {
     this.renderTabBar();
     // A hidden terminal cannot lay out; refit + resize now that it is visible,
     // otherwise xterm output degrades to letter-per-line.
-    session.fitAddon.fit();
-    session.processHandle?.resize?.(
-      Math.max(20, session.terminal.cols || 120),
-      Math.max(10, session.terminal.rows || 30)
-    );
+    this.sizeSession(session);
     session.terminal.focus();
     this.setStatus(session.status);
     this.updateToolbarState();
+  }
+
+  /**
+   * Keep a session's xterm and PTY at the same, correct size. When its container is
+   * visible, fit to it and remember that size; when hidden (collapsed sidebar,
+   * background tab, panel never shown) reuse the remembered size instead of letting
+   * FitAddon leave 80×24 or collapse to 2 columns. A session started while the
+   * panel is hidden then already has the size it will be displayed at, so opening
+   * the panel does not resize it and the CLI's TUI is not redrawn into a garbled
+   * mix of old and new lines. The PTY is only resized when the size really changes.
+   */
+  private sizeSession(session: CliSession): void {
+    const { terminal } = session;
+    const visible =
+      session.hostEl.clientWidth >= MIN_VISIBLE_TERMINAL_PX &&
+      session.hostEl.clientHeight >= MIN_VISIBLE_TERMINAL_PX;
+    const fitted = visible ? session.fitAddon.proposeDimensions() : undefined;
+    const target = resolveTerminalSize({
+      visible,
+      fitted,
+      lastVisible: this.plugin.settings.terminalSize,
+      current: { cols: terminal.cols, rows: terminal.rows }
+    });
+    if (terminal.cols !== target.cols || terminal.rows !== target.rows) {
+      terminal.resize(target.cols, target.rows);
+      if (visible) {
+        terminal.refresh(0, terminal.rows - 1);
+      }
+    }
+    const remembered = this.plugin.settings.terminalSize;
+    if (visible && fitted && (remembered?.cols !== target.cols || remembered?.rows !== target.rows)) {
+      this.plugin.settings.terminalSize = target;
+      this.saveTerminalSize();
+    }
+    if (session.processHandle && (session.ptySize?.cols !== target.cols || session.ptySize?.rows !== target.rows)) {
+      session.processHandle.resize?.(target.cols, target.rows);
+      session.ptySize = target;
+    }
   }
 
   sendAutomationPromptTo(sessionId: string, text: string, submitWithEnter: boolean): void {
@@ -795,8 +840,10 @@ class ClaudeCliView extends ItemView {
     const codexLike = isCodexLikeCommand(command);
     if (codexLike) {
       session.terminal.reset();
-      session.fitAddon.fit();
     }
+    // Spawn with exactly the terminal's size, measured or remembered (see sizeSession).
+    this.sizeSession(session);
+    const spawnSize = { cols: session.terminal.cols, rows: session.terminal.rows };
 
     session.resetReady();
     session.writeSystemLine(`[Starting: ${command}]`);
@@ -842,14 +889,15 @@ class ClaudeCliView extends ItemView {
         command,
         cwd: vaultPath,
         env: shellEnv,
-        cols: Math.max(20, session.terminal.cols || 120),
-        rows: Math.max(10, session.terminal.rows || 30),
+        cols: spawnSize.cols,
+        rows: spawnSize.rows,
         nodeExecutable: this.plugin.settings.nodeExecutable,
         pluginDir: this.plugin.manifest.dir,
         vaultPath,
         verbose: this.plugin.settings.verboseProxyLogs
       });
       session.processHandle = makeProxyAdapter(helperHandle);
+      session.ptySize = spawnSize;
     } catch (error) {
       const message = `Failed to start process: ${(error as Error).message}`;
       session.writeSystemLine(`[${message}]`);
@@ -905,9 +953,6 @@ class ClaudeCliView extends ItemView {
       this.updateToolbarState();
     });
 
-    if (this.activeSessionId === session.id) {
-      session.fitAddon.fit();
-    }
     return true;
   }
 
@@ -1435,6 +1480,7 @@ export default class ClaudeCliPlugin extends Plugin {
       automationsFolder:
         typeof raw.automationsFolder === "string" ? raw.automationsFolder : DEFAULT_SETTINGS.automationsFolder,
       automationsLastRun: sanitizeLastRun(raw.automationsLastRun),
+      terminalSize: parseStoredTerminalSize(raw.terminalSize),
       automationsHistory: sanitizeHistory(raw.automationsHistory),
       automationsHistoryLimit:
         typeof raw.automationsHistoryLimit === "number" &&

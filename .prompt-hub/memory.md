@@ -205,3 +205,11 @@
 - Action : publié la release GitHub 0.2.21 (chargement du panneau différé avant d'ouvrir une session d'automation). Tag 0.2.21 poussé -> workflow Release run 45858552909 success -> draft publié via `gh release edit 0.2.21 --draft=false`.
 - URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.21
 - Assets : any-ai-cli-0.2.21.zip, main.js, manifest.json, styles.css, versions.json. Statut : success.
+
+## 2026-11-26 — agent (Claude Opus 5.5)
+- Action : corrigé le terminal illisible (lignes chevauchées, fragments dupliqués) des sessions lancées panneau caché, constaté sur une automation lancée depuis un autre plugin. Cause : conteneur caché non mesurable, `fit()` laissait 80×24 ou tombait à 2 colonnes alors que le PTY démarrait avec `max(20, cols)` ; le resize à l'ouverture faisait redessiner le TUI sur des lignes reflowées.
+- Correctif : `sizeSession()` unique (visible → fit + taille mémorisée dans `settings.terminalSize`, sauvegarde debouncée ; caché → taille mémorisée) ; spawn avec la taille exacte du terminal ; resize PTY seulement si la taille change (`session.ptySize`) ; ResizeObserver dimensionne aussi les onglets en arrière-plan.
+- Note : `app.loadLocalStorage` écarté (lint : requiert Obsidian 1.8.7 > minAppVersion 1.7.2) au profit des données du plugin.
+- Fichiers : main.ts, session-utils.ts, tests/session-utils.test.ts, main.js, manifest.json, package.json, versions.json, .prompt-hub/version.md, .prompt-hub/releases.md, .prompt-hub/todo/todo-20261126-193000-hidden-panel-terminal-size.md ; version 0.2.21 -> 0.2.22.
+- Validation : lint OK, 86 tests OK (7 nouveaux), tsc sans erreur sur le projet (erreurs préexistantes dans node_modules/vite et vitest uniquement), build OK. Non vérifié dans Obsidian.
+- Statut : success. Prochain : commit + push + release 0.2.22 sur feu vert utilisateur.

@@ -18598,6 +18598,26 @@ function tabDotClass(opts) {
   }
   return "is-idle";
 }
+var MIN_TERMINAL_COLS = 20;
+var MIN_TERMINAL_ROWS = 10;
+function isUsableSize(size) {
+  return !!size && Number.isFinite(size.cols) && Number.isFinite(size.rows) && size.cols > 0 && size.rows > 0;
+}
+function resolveTerminalSize(opts) {
+  const base = opts.visible && isUsableSize(opts.fitted) ? opts.fitted : isUsableSize(opts.lastVisible) ? opts.lastVisible : opts.current;
+  return {
+    cols: Math.max(MIN_TERMINAL_COLS, Math.floor(base.cols) || 0),
+    rows: Math.max(MIN_TERMINAL_ROWS, Math.floor(base.rows) || 0)
+  };
+}
+function parseStoredTerminalSize(raw) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const { cols, rows } = raw;
+  const size = { cols: Number(cols), rows: Number(rows) };
+  return isUsableSize(size) && size.cols >= MIN_TERMINAL_COLS && size.rows >= MIN_TERMINAL_ROWS ? size : null;
+}
 
 // automation.ts
 var import_cron_parser = __toESM(require_dist());
@@ -19017,6 +19037,7 @@ var DEFAULT_SETTINGS = {
   nodeExecutable: "auto",
   automationsFolder: "",
   automationsLastRun: {},
+  terminalSize: null,
   automationsHistory: [],
   automationsHistoryLimit: 200,
   autoCloseAutomationSessions: true,
@@ -19202,6 +19223,7 @@ function cloneDefaultRuntimes() {
   return DEFAULT_RUNTIMES.map((runtime) => ({ ...runtime }));
 }
 var SESSION_READY_QUIET_MS = 1200;
+var MIN_VISIBLE_TERMINAL_PX = 60;
 var SESSION_READY_MAX_MS = 15e3;
 function createSessionTerminal() {
   const terminal = new Dl({
@@ -19222,6 +19244,8 @@ function createSessionTerminal() {
 var CliSession = class {
   constructor(params) {
     this.processHandle = null;
+    // Size last sent to the PTY (at spawn or by resize); avoids redundant SIGWINCH redraws.
+    this.ptySize = null;
     this.status = "Idle";
     this.pendingRestart = false;
     // Live activity: "working" while the CLI emits output, "idle" after it goes
@@ -19376,6 +19400,8 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     this.emptyHintEl = null;
     this.statusEl = null;
     this.resizeObserver = null;
+    // Panel drags fire many resizes: persist the measured size once it settles.
+    this.saveTerminalSize = (0, import_obsidian2.debounce)(() => void this.plugin.saveSettings(), 1500, true);
     this.stopBtn = null;
     this.restartBtn = null;
     this.clearBtn = null;
@@ -19436,18 +19462,14 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     this.emptyHintEl = this.terminalsHostEl.createDiv({ cls: "claude-cli-empty-hint" });
     this.emptyHintEl.setText("No session running. Use the + button to launch a runtime.");
     this.resizeObserver = new ResizeObserver(() => {
-      var _a5, _b;
-      const session = this.getActiveSession();
-      if (!session) {
-        return;
+      const active = this.getActiveSession();
+      if (active) {
+        this.sizeSession(active);
       }
-      session.fitAddon.fit();
-      if (session.processHandle) {
-        (_b = (_a5 = session.processHandle).resize) == null ? void 0 : _b.call(
-          _a5,
-          Math.max(20, session.terminal.cols || 120),
-          Math.max(10, session.terminal.rows || 30)
-        );
+      for (const session of this.sessions) {
+        if (session !== active) {
+          this.sizeSession(session);
+        }
       }
     });
     this.resizeObserver.observe(this.contentEl);
@@ -19525,7 +19547,6 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     const hostEl = this.terminalsHostEl.createDiv({ cls: "claude-cli-terminal" });
     const { terminal, fitAddon } = createSessionTerminal();
     terminal.open(hostEl);
-    fitAddon.fit();
     const label = nextSessionLabel(
       this.sessions.map((s15) => s15.label),
       runtime.name || "(Unnamed)"
@@ -19587,7 +19608,6 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     }
   }
   setActiveSession(id) {
-    var _a5, _b;
     const session = this.findSession(id);
     if (!session) {
       return;
@@ -19598,15 +19618,46 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     }
     this.updateEmptyState();
     this.renderTabBar();
-    session.fitAddon.fit();
-    (_b = (_a5 = session.processHandle) == null ? void 0 : _a5.resize) == null ? void 0 : _b.call(
-      _a5,
-      Math.max(20, session.terminal.cols || 120),
-      Math.max(10, session.terminal.rows || 30)
-    );
+    this.sizeSession(session);
     session.terminal.focus();
     this.setStatus(session.status);
     this.updateToolbarState();
+  }
+  /**
+   * Keep a session's xterm and PTY at the same, correct size. When its container is
+   * visible, fit to it and remember that size; when hidden (collapsed sidebar,
+   * background tab, panel never shown) reuse the remembered size instead of letting
+   * FitAddon leave 80×24 or collapse to 2 columns. A session started while the
+   * panel is hidden then already has the size it will be displayed at, so opening
+   * the panel does not resize it and the CLI's TUI is not redrawn into a garbled
+   * mix of old and new lines. The PTY is only resized when the size really changes.
+   */
+  sizeSession(session) {
+    var _a5, _b, _c2, _d;
+    const { terminal } = session;
+    const visible = session.hostEl.clientWidth >= MIN_VISIBLE_TERMINAL_PX && session.hostEl.clientHeight >= MIN_VISIBLE_TERMINAL_PX;
+    const fitted = visible ? session.fitAddon.proposeDimensions() : void 0;
+    const target = resolveTerminalSize({
+      visible,
+      fitted,
+      lastVisible: this.plugin.settings.terminalSize,
+      current: { cols: terminal.cols, rows: terminal.rows }
+    });
+    if (terminal.cols !== target.cols || terminal.rows !== target.rows) {
+      terminal.resize(target.cols, target.rows);
+      if (visible) {
+        terminal.refresh(0, terminal.rows - 1);
+      }
+    }
+    const remembered = this.plugin.settings.terminalSize;
+    if (visible && fitted && ((remembered == null ? void 0 : remembered.cols) !== target.cols || (remembered == null ? void 0 : remembered.rows) !== target.rows)) {
+      this.plugin.settings.terminalSize = target;
+      this.saveTerminalSize();
+    }
+    if (session.processHandle && (((_a5 = session.ptySize) == null ? void 0 : _a5.cols) !== target.cols || ((_b = session.ptySize) == null ? void 0 : _b.rows) !== target.rows)) {
+      (_d = (_c2 = session.processHandle).resize) == null ? void 0 : _d.call(_c2, target.cols, target.rows);
+      session.ptySize = target;
+    }
   }
   sendAutomationPromptTo(sessionId, text, submitWithEnter) {
     const session = this.findSession(sessionId);
@@ -19635,8 +19686,9 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
     const codexLike = isCodexLikeCommand(command);
     if (codexLike) {
       session.terminal.reset();
-      session.fitAddon.fit();
     }
+    this.sizeSession(session);
+    const spawnSize = { cols: session.terminal.cols, rows: session.terminal.rows };
     session.resetReady();
     session.writeSystemLine(`[Starting: ${command}]`);
     session.status = `Starting in vault folder (${process.platform})...`;
@@ -19677,14 +19729,15 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
         command,
         cwd: vaultPath,
         env: shellEnv,
-        cols: Math.max(20, session.terminal.cols || 120),
-        rows: Math.max(10, session.terminal.rows || 30),
+        cols: spawnSize.cols,
+        rows: spawnSize.rows,
         nodeExecutable: this.plugin.settings.nodeExecutable,
         pluginDir: this.plugin.manifest.dir,
         vaultPath,
         verbose: this.plugin.settings.verboseProxyLogs
       });
       session.processHandle = makeProxyAdapter(helperHandle);
+      session.ptySize = spawnSize;
     } catch (error) {
       const message = `Failed to start process: ${error.message}`;
       session.writeSystemLine(`[${message}]`);
@@ -19734,9 +19787,6 @@ var ClaudeCliView = class extends import_obsidian2.ItemView {
       this.renderTabBar();
       this.updateToolbarState();
     });
-    if (this.activeSessionId === session.id) {
-      session.fitAddon.fit();
-    }
     return true;
   }
   stopActiveSession() {
@@ -20191,6 +20241,7 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
       nodeExecutable: typeof raw.nodeExecutable === "string" && raw.nodeExecutable.trim() ? raw.nodeExecutable : DEFAULT_SETTINGS.nodeExecutable,
       automationsFolder: typeof raw.automationsFolder === "string" ? raw.automationsFolder : DEFAULT_SETTINGS.automationsFolder,
       automationsLastRun: sanitizeLastRun(raw.automationsLastRun),
+      terminalSize: parseStoredTerminalSize(raw.terminalSize),
       automationsHistory: sanitizeHistory(raw.automationsHistory),
       automationsHistoryLimit: typeof raw.automationsHistoryLimit === "number" && Number.isInteger(raw.automationsHistoryLimit) && raw.automationsHistoryLimit > 0 ? raw.automationsHistoryLimit : DEFAULT_SETTINGS.automationsHistoryLimit,
       autoCloseAutomationSessions: typeof raw.autoCloseAutomationSessions === "boolean" ? raw.autoCloseAutomationSessions : DEFAULT_SETTINGS.autoCloseAutomationSessions,
