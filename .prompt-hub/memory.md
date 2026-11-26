@@ -226,3 +226,8 @@
 - Fichiers : pty-proxy.js, pty-bridge.py, main.ts, main.js, manifest.json, package.json, versions.json, .prompt-hub/version.md, releases.md, lessons.md, todo-20261126-200000-bridge-resize-utf8.md ; version 0.2.22 -> 0.2.23.
 - Validation : lint OK, 86 tests OK, tsc OK hors node_modules, build OK, test bout en bout OK. Non vérifié dans Obsidian.
 - Statut : success. Prochain : commit + push + release 0.2.23 sur feu vert utilisateur.
+
+## 2026-11-26 — agent (Claude Opus 5.5)
+- Action : publié la release GitHub 0.2.23 (resize appliqué via le pont Python, décodage UTF-8 par flux). Commit a6024b2 poussé, tag 0.2.23 poussé -> workflow Release run 45875319101 success -> draft publié via `gh release edit 0.2.23 --draft=false`.
+- URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.23
+- Assets : any-ai-cli-0.2.23.zip, main.js, manifest.json, styles.css, versions.json. Statut : success.
