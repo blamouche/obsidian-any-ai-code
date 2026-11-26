@@ -171,16 +171,26 @@ function spawnPythonBridge(payload, launches) {
       env: payload.env,
       launches,
       cols: payload.cols,
-      rows: payload.rows
+      rows: payload.rows,
+      control_fd: 3
     }),
     "utf8"
   ).toString("base64");
 
-  return spawn(pythonExec, [bridgePath, encoded], {
+  // fd 3 carries resize requests ("<cols> <rows>\n"); the bridge applies them
+  // with TIOCSWINSZ so the CLI is redrawn at the terminal's real width.
+  const child = spawn(pythonExec, [bridgePath, encoded], {
     cwd: payload.cwd,
     env: payload.env,
-    stdio: ["pipe", "pipe", "pipe"]
+    stdio: ["pipe", "pipe", "pipe", "pipe"]
   });
+  child.resizeControl = child.stdio[3];
+  if (child.resizeControl) {
+    child.resizeControl.on("error", () => {
+      // Bridge gone: resize requests are simply dropped.
+    });
+  }
+  return child;
 }
 
 async function main() {
@@ -281,11 +291,14 @@ async function main() {
     });
     process.stdin.resume();
   } else {
+    // Forward raw bytes: decoding each chunk on its own would turn a multi-byte
+    // character split across two reads (é, ●, ⎿…) into replacement characters
+    // and shift the rest of the TUI line.
     term.stdout.on("data", (chunk) => {
-      process.stdout.write(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
+      process.stdout.write(chunk);
     });
     term.stderr.on("data", (chunk) => {
-      process.stdout.write(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
+      process.stdout.write(chunk);
     });
     term.on("exit", (code) => {
       process.exit(code ?? 0);
@@ -302,11 +315,15 @@ async function main() {
     if (!message || typeof message !== "object") {
       return;
     }
-    if (mode === "pty" && message.type === "resize") {
+    if (message.type === "resize") {
       const cols = Math.max(20, Number(message.cols) || 120);
       const rows = Math.max(10, Number(message.rows) || 30);
       try {
-        term.resize(cols, rows);
+        if (mode === "pty") {
+          term.resize(cols, rows);
+        } else if (term.resizeControl && term.resizeControl.writable) {
+          term.resizeControl.write(`${cols} ${rows}\n`);
+        }
       } catch {
         // Ignore resize errors.
       }

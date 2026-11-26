@@ -1,5 +1,9 @@
 # Releases
 
+## 0.2.23 - 2026-11-26
+- Fixed the terminal getting **garbled** (overlapping lines, duplicated fragments) whenever a session was resized after it started — typically when opening the side panel on a session launched while it was hidden, or when resizing the panel. Without the optional native `node-pty` module the plugin runs CLIs through the **python PTY bridge**, which ignored resize requests: the CLI kept rendering at its launch width while xterm used the new one. The proxy now opens a resize channel (fd 3) to the bridge, which applies each size with `TIOCSWINSZ`, so the CLI gets `SIGWINCH` and redraws at the terminal's real size. 0.2.22 only avoided the resize on reveal; this fixes resizing itself.
+- Fixed stray replacement characters that shifted TUI lines: output was decoded chunk by chunk, so a multi-byte character split across two reads (é, ●, ⎿…) became `U+FFFD` and every following column moved. The proxy now forwards raw bytes in fallback mode and the plugin decodes each stream with a stateful UTF-8 decoder.
+
 ## 0.2.22 - 2026-11-26
 - Fixed sessions started while the side panel is **hidden** (automation with **Reveal the side panel when an automation runs** off, or a session opened by another plugin in the background) showing a **garbled terminal** once the panel is opened: overlapping lines, duplicated fragments. A hidden container cannot be measured, so `FitAddon.fit()` either left xterm at 80×24 or collapsed it to 2 columns, while the PTY was spawned with `max(20, cols)`; xterm and the CLI disagreed on the width, and the resize on reveal made the TUI (Claude Code) redraw over reflowed lines. Sizing now goes through a single `sizeSession()`:
   - visible panel → fit to the container and remember that size (`terminalSize` in the plugin data, saved debounced);

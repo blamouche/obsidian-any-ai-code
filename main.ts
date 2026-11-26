@@ -1,5 +1,6 @@
 import { App, FileSystemAdapter, ItemView, Menu, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, WorkspaceLeaf, debounce, parseYaml, setIcon } from "obsidian";
 import { spawn, type ChildProcess } from "child_process";
+import { StringDecoder } from "string_decoder";
 import { randomUUID } from "node:crypto";
 import * as fs from "fs";
 import * as os from "os";
@@ -2013,8 +2014,10 @@ function makeProxyAdapter(handle: ChildProcess): ProcessAdapter {
   const pendingData: string[] = [];
   let pendingExit: { code: number; signal: string } | null = null;
 
-  const emitData = (chunk: Buffer | string) => {
-    const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+  const emitText = (text: string) => {
+    if (!text) {
+      return;
+    }
     if (dataCallbacks.length === 0) {
       pendingData.push(text);
       return;
@@ -2032,8 +2035,13 @@ function makeProxyAdapter(handle: ChildProcess): ProcessAdapter {
     exitCallbacks.forEach((callback) => callback(exitCode, exitSignal));
   };
 
-  handle.stdout?.on("data", emitData);
-  handle.stderr?.on("data", emitData);
+  // One stateful decoder per stream: a multi-byte UTF-8 character split across
+  // two chunks is held back until complete instead of becoming U+FFFD, which
+  // would shift every following column of the TUI line.
+  const decodeFrom = (decoder: StringDecoder) => (chunk: Buffer | string) =>
+    emitText(typeof chunk === "string" ? chunk : decoder.write(chunk));
+  handle.stdout?.on("data", decodeFrom(new StringDecoder("utf8")));
+  handle.stderr?.on("data", decodeFrom(new StringDecoder("utf8")));
   handle.on("exit", emitExit);
 
   return {

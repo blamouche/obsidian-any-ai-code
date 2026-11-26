@@ -218,3 +218,11 @@
 - Action : publié la release GitHub 0.2.22 (taille de terminal stable pour les sessions lancées panneau caché). Commit af6a6e5 poussé, tag 0.2.22 poussé -> workflow Release run 45874660206 success -> draft publié via `gh release edit 0.2.22 --draft=false`.
 - URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.22
 - Assets : any-ai-cli-0.2.22.zip, main.js, manifest.json, styles.css, versions.json. Statut : success.
+
+## 2026-11-26 — agent (Claude Opus 5.5)
+- Action : l'utilisateur signale le terminal toujours cassé après 0.2.22. Vraie cause : en mode pont Python (node-pty absent, cas du coffre de l'utilisateur), `pty-proxy.js` ignorait les messages `resize` : le CLI gardait sa largeur de lancement. Seconde cause : décodage UTF-8 par morceau (proxy en mode pipe + `makeProxyAdapter`) -> U+FFFD sur caractères coupés.
+- Correctif : canal de resize fd 3 proxy -> `pty-bridge.py` (lignes `<cols> <rows>`, `TIOCSWINSZ`, fd non hérité par le CLI) ; proxy en mode pipe transmet des octets bruts ; `makeProxyAdapter` décode avec un `StringDecoder` par flux.
+- Reproduction de bout en bout (proxy réel, pont Python) : ancien code `54 62` puis `54 62` après resize, 6 U+FFFD sur 6000 motifs `aé●⎿` ; nouveau code `54 62` puis `40 90`, SIGWINCH reçu, 0 U+FFFD.
+- Fichiers : pty-proxy.js, pty-bridge.py, main.ts, main.js, manifest.json, package.json, versions.json, .prompt-hub/version.md, releases.md, lessons.md, todo-20261126-200000-bridge-resize-utf8.md ; version 0.2.22 -> 0.2.23.
+- Validation : lint OK, 86 tests OK, tsc OK hors node_modules, build OK, test bout en bout OK. Non vérifié dans Obsidian.
+- Statut : success. Prochain : commit + push + release 0.2.23 sur feu vert utilisateur.
