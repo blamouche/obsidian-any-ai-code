@@ -213,3 +213,8 @@
 - Fichiers : main.ts, session-utils.ts, tests/session-utils.test.ts, main.js, manifest.json, package.json, versions.json, .prompt-hub/version.md, .prompt-hub/releases.md, .prompt-hub/todo/todo-20261126-193000-hidden-panel-terminal-size.md ; version 0.2.21 -> 0.2.22.
 - Validation : lint OK, 86 tests OK (7 nouveaux), tsc sans erreur sur le projet (erreurs préexistantes dans node_modules/vite et vitest uniquement), build OK. Non vérifié dans Obsidian.
 - Statut : success. Prochain : commit + push + release 0.2.22 sur feu vert utilisateur.
+
+## 2026-11-26 — agent (Claude Opus 5.5)
+- Action : publié la release GitHub 0.2.22 (taille de terminal stable pour les sessions lancées panneau caché). Commit af6a6e5 poussé, tag 0.2.22 poussé -> workflow Release run 45874660206 success -> draft publié via `gh release edit 0.2.22 --draft=false`.
+- URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.22
+- Assets : any-ai-cli-0.2.22.zip, main.js, manifest.json, styles.css, versions.json. Statut : success.
