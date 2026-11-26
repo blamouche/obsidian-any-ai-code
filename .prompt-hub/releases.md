@@ -1,5 +1,8 @@
 # Releases
 
+## 0.2.21 - 2026-11-26
+- Fixed automations failing with **"Could not open a session"** when the Any AI CLI panel was part of the saved layout but had not been shown since Obsidian started. Obsidian (>= 1.7) restores such side-panel leaves as *deferred*: `leaf.view` is a placeholder rather than a `ClaudeCliView`, so no session could attach. `revealLeaf` used to load it implicitly, but since 0.2.20 it is skipped when **Reveal the side panel when an automation runs** is off, which made both scheduled runs and **Run now** fail. `activateView()` now calls `leaf.loadIfDeferred()` before the optional reveal, so the view is always mounted (still without opening or focusing the sidebar).
+
 ## 0.2.20 - 2026-11-18
 - New setting **Reveal the side panel when an automation runs** (Automations section, **on by default** = current behaviour). When turned off, an automation launch no longer opens/focuses the side panel: the view is still mounted so the session can attach, but it is created inactive and `revealLeaf` is skipped, so a collapsed sidebar stays collapsed and focus stays where you were. The automation session runs normally and its tab is waiting when you open the panel.
 - `AnyAiCliPlugin.activateView()` now accepts `{ reveal?: boolean }` (defaults to `true`); the automation run path passes the new setting through `activateViewAndStartSession`.

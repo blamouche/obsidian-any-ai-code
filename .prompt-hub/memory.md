@@ -192,3 +192,11 @@
 - Action : publié la release GitHub 0.2.20 (réglage de révélation du panneau latéral à l'exécution d'une automation). Tag 0.2.20 poussé -> workflow Release run 44294807856 success -> draft publié via `gh release edit 0.2.20 --draft=false`.
 - URL : https://github.com/blamouche/obsidian-any-ai-code/releases/tag/0.2.20
 - Assets : any-ai-cli-0.2.20.zip, main.js, manifest.json, styles.css, versions.json. Statut : success.
+
+## 2026-11-26 — agent (Claude Opus 5.5)
+- Action : corrigé « Could not open a session » sur les automations (planifiées et « Run now ») quand le panneau est restauré du layout mais jamais affiché depuis le démarrage : feuille différée (Obsidian >= 1.7), `leaf.view` n'est pas une `ClaudeCliView`. Depuis 0.2.20, `revealLeaf` (qui chargeait la vue) est sauté si `revealPanelOnAutomation` est off.
+- Correctif : `activateView()` appelle `await leaf.loadIfDeferred()` avant le `revealLeaf` optionnel.
+- Constat terrain : 8 échecs planifiés + 3 manuels « Could not open a session » dans l'historique d'un coffre utilisateur.
+- Fichiers : main.ts, main.js, manifest.json, package.json, versions.json, .prompt-hub/version.md, .prompt-hub/releases.md, .prompt-hub/todo/todo-20261126-180000-load-deferred-panel.md ; version 0.2.20 -> 0.2.21.
+- Validation : lint OK, 79 tests OK, tsc --noEmit OK, build OK, `loadIfDeferred` présent dans main.js. Pas de test unitaire : code lié à l'API workspace d'Obsidian (non mockée dans la suite).
+- Statut : success. Prochain : commit + push (en attente du feu vert utilisateur), puis release 0.2.21.

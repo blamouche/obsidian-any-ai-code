@@ -20174,6 +20174,7 @@ var ClaudeCliPlugin = class extends import_obsidian2.Plugin {
         active: reveal
       });
     }
+    await leaf.loadIfDeferred();
     if (reveal) {
       await workspace.revealLeaf(leaf);
     }

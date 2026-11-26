@@ -1405,6 +1405,12 @@ export default class ClaudeCliPlugin extends Plugin {
       });
     }
 
+    // A panel restored from the saved layout stays "deferred" (Obsidian >= 1.7)
+    // until it is shown: `leaf.view` is then not a ClaudeCliView and no session
+    // can attach. `revealLeaf` would load it, but it is skipped when `reveal` is
+    // false (e.g. background automation runs), so load it explicitly.
+    await leaf.loadIfDeferred();
+
     if (reveal) {
       await workspace.revealLeaf(leaf);
     }
